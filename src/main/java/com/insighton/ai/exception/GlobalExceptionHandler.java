@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
-public class ReportExceptionHandler {
+public class GlobalExceptionHandler {
 
     @ExceptionHandler(ReportNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleReportNotFound(ReportNotFoundException e) {
