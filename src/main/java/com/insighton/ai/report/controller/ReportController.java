@@ -37,11 +37,9 @@ public class ReportController {
     @ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(array = @ArraySchema(schema = @Schema(implementation = ReportListResponse.class))))
     @GetMapping
     public ResponseEntity<List<ReportListResponse>> getReports(
-            @Parameter(description = "그룹 ID", example = "5", required = true,
-                    schema = @Schema(type = "integer", format = "int64"))
+            @Parameter(description = "그룹 ID", example = "5", required = true, schema = @Schema(type = "integer", format = "int64"))
             @RequestParam Long groupId,
-            @Parameter(description = "위치 ID", example = "42",
-                    schema = @Schema(type = "integer", format = "int64"))
+            @Parameter(description = "위치 ID", example = "42", schema = @Schema(type = "integer", format = "int64"))
             @RequestParam(required = false) Long locationId,
             @Parameter(description = "리포트 종류", example = "WEEKLY")
             @RequestParam(required = false) ReportType reportType
