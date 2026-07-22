@@ -9,7 +9,7 @@ import java.time.OffsetDateTime;
 public record ReportListResponse(
 
         @Schema(description = "리포트 ID", example = "1")
-        Long id,
+        Long reportId,
 
         @Schema(description = "그룹 ID", example = "5")
         Long groupId,

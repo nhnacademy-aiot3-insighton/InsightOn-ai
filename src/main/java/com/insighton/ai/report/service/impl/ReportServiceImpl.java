@@ -49,8 +49,8 @@ public class ReportServiceImpl implements ReportService {
                 .content(request.content())
                 .build();
 
-        log.info("리포트 생성 - reportId={}", report.getReportId());
-
-        return reportRepository.save(report);
+        Report savedReport = reportRepository.save(report);
+        log.info("리포트 생성 - reportId={}", savedReport.getReportId());
+        return savedReport;
     }
 }
