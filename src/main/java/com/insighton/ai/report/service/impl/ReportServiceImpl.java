@@ -1,10 +1,10 @@
 package com.insighton.ai.report.service.impl;
 
+import com.insighton.ai.report.domain.Report;
+import com.insighton.ai.report.domain.ReportType;
 import com.insighton.ai.report.dto.ReportCreateRequest;
 import com.insighton.ai.report.dto.ReportDetailResponse;
 import com.insighton.ai.report.dto.ReportListResponse;
-import com.insighton.ai.report.entity.Report;
-import com.insighton.ai.report.entity.ReportType;
 import com.insighton.ai.report.exception.ReportNotFoundException;
 import com.insighton.ai.report.repository.ReportRepository;
 import com.insighton.ai.report.service.ReportService;

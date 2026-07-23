@@ -1,6 +1,6 @@
 package com.insighton.ai.report.dto;
 
-import com.insighton.ai.report.entity.ReportType;
+import com.insighton.ai.report.domain.ReportType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

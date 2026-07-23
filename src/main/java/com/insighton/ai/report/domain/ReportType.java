@@ -1,4 +1,4 @@
-package com.insighton.ai.report.entity;
+package com.insighton.ai.report.domain;
 
 public enum ReportType {
     WEEKLY,

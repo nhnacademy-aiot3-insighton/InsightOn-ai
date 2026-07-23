@@ -1,7 +1,7 @@
 package com.insighton.ai.report.repository;
 
-import com.insighton.ai.report.entity.Report;
-import com.insighton.ai.report.entity.ReportType;
+import com.insighton.ai.report.domain.Report;
+import com.insighton.ai.report.domain.ReportType;
 import java.util.List;
 
 public interface ReportQueryRepository {

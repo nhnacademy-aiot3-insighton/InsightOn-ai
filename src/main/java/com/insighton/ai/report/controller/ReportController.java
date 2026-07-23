@@ -1,9 +1,9 @@
 package com.insighton.ai.report.controller;
 
 import com.insighton.ai.exception.ErrorResponse;
+import com.insighton.ai.report.domain.ReportType;
 import com.insighton.ai.report.dto.ReportDetailResponse;
 import com.insighton.ai.report.dto.ReportListResponse;
-import com.insighton.ai.report.entity.ReportType;
 import com.insighton.ai.report.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

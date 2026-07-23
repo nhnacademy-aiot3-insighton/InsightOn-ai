@@ -1,7 +1,7 @@
 package com.insighton.ai.report.dto;
 
-import com.insighton.ai.report.entity.Report;
-import com.insighton.ai.report.entity.ReportType;
+import com.insighton.ai.report.domain.Report;
+import com.insighton.ai.report.domain.ReportType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.OffsetDateTime;
 

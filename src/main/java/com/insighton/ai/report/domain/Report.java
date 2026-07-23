@@ -1,4 +1,4 @@
-package com.insighton.ai.report.entity;
+package com.insighton.ai.report.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
