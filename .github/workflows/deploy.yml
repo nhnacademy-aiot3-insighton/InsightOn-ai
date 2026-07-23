@@ -1,0 +1,15 @@
+name: ai CI/CD
+
+on:
+  push:
+    branches: [ main, dev-deploy ]
+  pull_request:
+    branches: [ main, dev-deploy ]
+
+jobs:
+  call-reusable:
+    uses: nhnacademy-aiot3-insighton/InsightOn-infra/.github/workflows/ai-ci-cd.yml@main
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit

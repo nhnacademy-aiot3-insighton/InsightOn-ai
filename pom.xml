@@ -131,6 +131,10 @@
             <classifier>jakarta</classifier>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-config-client</artifactId>
+        </dependency>
     </dependencies>
     <dependencyManagement>
         <dependencies>
