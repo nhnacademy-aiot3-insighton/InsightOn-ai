@@ -1,6 +1,6 @@
 package com.insighton.ai.report.repository.impl;
 
-import static com.insighton.ai.report.entity.QReport.report;
+import static com.insighton.ai.report.domain.QReport.report;
 
 import com.insighton.ai.report.domain.Report;
 import com.insighton.ai.report.domain.ReportType;
