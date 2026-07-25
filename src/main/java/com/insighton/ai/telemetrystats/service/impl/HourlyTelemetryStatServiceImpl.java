@@ -64,6 +64,7 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
      * @return 저장된 시간별 통계 응답
      * @throws ConstraintViolationException 요청값 검증 실패 시
      */
+    @Transactional
     @Override
     public HourlyTelemetryStatResponse create(HourlyTelemetryStatCreateRequest request) {
 

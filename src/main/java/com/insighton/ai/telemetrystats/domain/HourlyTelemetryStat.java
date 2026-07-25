@@ -8,6 +8,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -66,7 +67,8 @@ public class HourlyTelemetryStat {
                                String actuatorOnMinutes) {
         this.groupId = groupId;
         this.locationId = locationId;
-        this.logHour = logHour;
+        // 배치 실행 시각(초/밀리초 단위 오차 포함)과 무관하게 어떤 값이 들어와도 항상 정시로 내림 정규화
+        this.logHour = logHour != null ? logHour.truncatedTo(ChronoUnit.HOURS) : null;
         this.metricsAvg = metricsAvg;
         this.metricsMax = metricsMax;
         this.metricsMin = metricsMin;
