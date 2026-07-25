@@ -7,10 +7,6 @@ import java.time.OffsetDateTime;
 
 @Schema(description = "시간별 텔레메트리 통계 생성 요청 (내부용, 정각 집계 배치 전용 — 외부 API로는 노출 안 됨)")
 public record HourlyTelemetryStatCreateRequest(
-        @Schema(description = "그룹 ID", example = "5")
-        @NotNull
-        Long groupId,
-
         @Schema(description = "위치 ID", example = "42")
         @NotNull
         Long locationId,
@@ -31,8 +27,7 @@ public record HourlyTelemetryStatCreateRequest(
         @NotBlank
         String metricsMin,
 
-        @Schema(description = "액추에이터별 가동 분 (JSON, 예: {\"aircon\":45,\"purifier\":12})")
-        @NotBlank
+        @Schema(description = "액추에이터별 가동 분 (JSON, 예: {\"aircon\":45,\"purifier\":12}), 이력 없으면 null 허용")
         String actuatorOnMinutes
 ) {
 }

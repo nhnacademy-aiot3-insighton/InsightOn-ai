@@ -9,16 +9,15 @@ import java.util.Optional;
 public interface HourlyTelemetryStatService {
 
     /**
-     * 그룹 ID(필수), 위치 ID·기간(선택) 조건에 따른 시간별 통계 목록 조회.
+     * 위치 ID(필수), 기간(선택) 조건에 따른 시간별 통계 목록 조회.
      *
-     * @param groupId    그룹 ID(필수)
-     * @param locationId 위치 ID(선택)
+     * @param locationId 위치 ID(필수)
      * @param from       조회 시작 시각(선택)
      * @param to         조회 종료 시각(선택)
      * @return 시간별 통계 목록 응답
      */
     List<HourlyTelemetryStatResponse> findHourlyTelemetryStats(
-            Long groupId, Long locationId, OffsetDateTime from, OffsetDateTime to);
+            Long locationId, OffsetDateTime from, OffsetDateTime to);
 
     /**
      * 시간별 통계 신규 생성, 저장 전 Bean Validation 기반 요청값 유효성 검증 수행.

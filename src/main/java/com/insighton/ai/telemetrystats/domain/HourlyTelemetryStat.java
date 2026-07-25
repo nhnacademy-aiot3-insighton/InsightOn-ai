@@ -31,9 +31,6 @@ public class HourlyTelemetryStat {
     @Column(name = "hourly_telemetry_stat_id")
     private Long hourlyTelemetryStatId;
 
-    @Column(name = "group_id", nullable = false)
-    private Long groupId;
-
     @Column(name = "location_id", nullable = false)
     private Long locationId;
 
@@ -54,7 +51,7 @@ public class HourlyTelemetryStat {
     private String metricsMin;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "actuator_on_minutes", nullable = false)
+    @Column(name = "actuator_on_minutes")
     private String actuatorOnMinutes;
 
     @CreationTimestamp
@@ -62,10 +59,9 @@ public class HourlyTelemetryStat {
     private OffsetDateTime createdAt;
 
     @Builder
-    public HourlyTelemetryStat(Long groupId, Long locationId, OffsetDateTime logHour,
+    public HourlyTelemetryStat(Long locationId, OffsetDateTime logHour,
                                String metricsAvg, String metricsMax, String metricsMin,
                                String actuatorOnMinutes) {
-        this.groupId = groupId;
         this.locationId = locationId;
         // 배치 실행 시각(초/밀리초 단위 오차 포함)과 무관하게 어떤 값이 들어와도 항상 정시로 내림 정규화
         this.logHour = logHour != null ? logHour.truncatedTo(ChronoUnit.HOURS) : null;

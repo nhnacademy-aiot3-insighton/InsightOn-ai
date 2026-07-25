@@ -12,14 +12,12 @@ public interface HourlyTelemetryStatRepository extends JpaRepository<HourlyTelem
 
     @Query("""
             select h from HourlyTelemetryStat h
-            where h.groupId = :groupId
-            and (:locationId is null or h.locationId = :locationId)
+            where h.locationId = :locationId
             and (:from is null or h.logHour >= :from)
             and (:to is null or h.logHour <= :to)
             order by h.logHour desc
             """)
-    List<HourlyTelemetryStat> search(@Param("groupId") Long groupId,
-                                     @Param("locationId") Long locationId,
+    List<HourlyTelemetryStat> search(@Param("locationId") Long locationId,
                                      @Param("from") OffsetDateTime from,
                                      @Param("to") OffsetDateTime to);
 

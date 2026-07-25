@@ -31,27 +31,26 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
     private final Validator validator;
 
     /**
-     * 그룹 ID(필수), 위치 ID·기간(선택) 조건에 따른 시간별 통계 목록 조회.
+     * 위치 ID(필수), 기간(선택) 조건에 따른 시간별 통계 목록 조회.
      *
-     * @param groupId    그룹 ID(필수)
-     * @param locationId 위치 ID(선택)
+     * @param locationId 위치 ID(필수)
      * @param from       조회 시작 시각(선택)
      * @param to         조회 종료 시각(선택)
      * @return 시간별 통계 목록 응답
-     * @throws InvalidRequestException groupId가 null인 경우
+     * @throws InvalidRequestException locationId가 null인 경우
      */
     @Override
-    public List<HourlyTelemetryStatResponse> findHourlyTelemetryStats(Long groupId, Long locationId,
+    public List<HourlyTelemetryStatResponse> findHourlyTelemetryStats(Long locationId,
                                                                       OffsetDateTime from, OffsetDateTime to) {
 
-        if (groupId == null) {
-            throw new InvalidRequestException("groupId 는 필수값입니다.");
+        if (locationId == null) {
+            throw new InvalidRequestException("locationId 는 필수값입니다.");
         }
 
-        List<HourlyTelemetryStat> stats = hourlyTelemetryStatRepository.search(groupId, locationId, from, to);
+        List<HourlyTelemetryStat> stats = hourlyTelemetryStatRepository.search(locationId, from, to);
 
-        log.info("시간별 통계 조회 - groupId:{}, locationId:{}, from:{}, to:{}, size:{}",
-                groupId, locationId, from, to, stats.size());
+        log.info("시간별 통계 조회 - locationId:{}, from:{}, to:{}, size:{}",
+                locationId, from, to, stats.size());
         return stats.stream()
                 .map(HourlyTelemetryStatResponse::from)
                 .toList();
@@ -75,7 +74,6 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
         }
 
         HourlyTelemetryStat stat = HourlyTelemetryStat.builder()
-                .groupId(request.groupId())
                 .locationId(request.locationId())
                 .logHour(request.logHour())
                 .metricsAvg(request.metricsAvg())
@@ -86,8 +84,8 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
 
         HourlyTelemetryStat saveStat = hourlyTelemetryStatRepository.save(stat);
 
-        log.info("시간별 통계 저장 - groupId:{}, locationId:{}, logHour:{}",
-                saveStat.getGroupId(), saveStat.getLocationId(), saveStat.getLogHour());
+        log.info("시간별 통계 저장 - locationId:{}, logHour:{}",
+                saveStat.getLocationId(), saveStat.getLogHour());
 
         return HourlyTelemetryStatResponse.from(saveStat);
     }

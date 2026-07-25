@@ -7,7 +7,6 @@ import java.time.OffsetDateTime;
 @Schema(description = "시간별 텔레메트리 통계")
 public record HourlyTelemetryStatResponse(
         @Schema(description = "통계 ID", example = "1") Long hourlyTelemetryStatId,
-        @Schema(description = "그룹 ID", example = "5") Long groupId,
         @Schema(description = "위치 ID", example = "42") Long locationId,
         @Schema(description = "집계 시간대", example = "2026-07-23T14:00:00+09:00") OffsetDateTime logHour,
         @Schema(description = "평균 메트릭 (JSON, 예: {\"co2\":850,\"temperature\":24.5})") String metricsAvg,
@@ -19,7 +18,6 @@ public record HourlyTelemetryStatResponse(
     public static HourlyTelemetryStatResponse from(HourlyTelemetryStat stat) {
         return new HourlyTelemetryStatResponse(
                 stat.getHourlyTelemetryStatId(),
-                stat.getGroupId(),
                 stat.getLocationId(),
                 stat.getLogHour(),
                 stat.getMetricsAvg(),

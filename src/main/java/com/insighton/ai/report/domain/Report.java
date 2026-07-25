@@ -31,6 +31,9 @@ public class Report {
     @Column(name = "location_id", nullable = false)
     private Long locationId;
 
+    @Column(name = "title", nullable = false, length = 200)
+    private String title;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "report_type", nullable = false, length = 20)
     private ReportType reportType;
@@ -43,9 +46,10 @@ public class Report {
     private OffsetDateTime createdAt;
 
     @Builder
-    public Report(Long groupId, Long locationId, ReportType reportType, String content) {
+    public Report(Long groupId, Long locationId, String title, ReportType reportType, String content) {
         this.groupId = groupId;
         this.locationId = locationId;
+        this.title = title;
         this.reportType = reportType;
         this.content = content;
     }

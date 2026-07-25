@@ -23,18 +23,15 @@ public class HourlyTelemetryStatController {
 
     @GetMapping
     public ResponseEntity<List<HourlyTelemetryStatResponse>> getHourlyTelemetryStatus(
-            @Parameter(description = "그룹 ID", example = "5", required = true,
+            @Parameter(description = "위치 ID", example = "42", required = true,
                     schema = @Schema(type = "integer", format = "int64"))
-            @RequestParam Long groupId,
-            @Parameter(description = "위치 ID", example = "42",
-                    schema = @Schema(type = "integer", format = "int64"))
-            @RequestParam(required = false) Long locationId,
+            @RequestParam Long locationId,
             @Parameter(description = "조회 시작 시각", example = "2026-07-23T00:00:00+09:00")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
             @Parameter(description = "조회 종료 시각", example = "2026-07-23T23:59:59+09:00")
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to
     ) {
 
-        return ResponseEntity.ok(hourlyTelemetryStatService.findHourlyTelemetryStats(groupId, locationId, from, to));
+        return ResponseEntity.ok(hourlyTelemetryStatService.findHourlyTelemetryStats(locationId, from, to));
     }
 }
