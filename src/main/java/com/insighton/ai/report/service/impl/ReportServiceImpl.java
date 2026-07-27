@@ -69,6 +69,7 @@ public class ReportServiceImpl implements ReportService {
         Report report = Report.builder()
                 .groupId(request.groupId())
                 .locationId(request.locationId())
+                .title(request.title())
                 .reportType(request.reportType())
                 .content(request.content())
                 .build();

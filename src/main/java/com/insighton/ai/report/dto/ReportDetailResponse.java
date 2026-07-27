@@ -16,6 +16,9 @@ public record ReportDetailResponse(
         @Schema(description = "위치 ID", example = "42")
         Long locationId,
 
+        @Schema(description = "제목")
+        String title,
+
         @Schema(description = "리포트 종류", example = "WEEKLY")
         ReportType reportType,
 
@@ -31,6 +34,7 @@ public record ReportDetailResponse(
                 report.getReportId(),
                 report.getGroupId(),
                 report.getLocationId(),
+                report.getTitle(),
                 report.getReportType(),
                 report.getContent(),
                 report.getCreatedAt()

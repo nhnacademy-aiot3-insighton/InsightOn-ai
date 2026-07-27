@@ -1,5 +1,6 @@
 package com.insighton.ai.exception;
 
+import com.insighton.ai.notification.exception.DashboardNotificationNotFoundException;
 import com.insighton.ai.report.exception.ReportNotFoundException;
 import com.insighton.ai.suggestion.exception.SuggestionLogNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -12,15 +13,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(ReportNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleReportNotFound(RuntimeException e) {
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(ErrorResponse.of(HttpStatus.NOT_FOUND.value(), e.getMessage()));
-    }
-
-    @ExceptionHandler(SuggestionLogNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleSuggestionLogNotFound(RuntimeException e) {
+    @ExceptionHandler({
+            ReportNotFoundException.class,
+            SuggestionLogNotFoundException.class,
+            DashboardNotificationNotFoundException.class
+    })
+    public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException e) {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of(HttpStatus.NOT_FOUND.value(), e.getMessage()));

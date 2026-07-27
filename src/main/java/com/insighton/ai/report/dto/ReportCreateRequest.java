@@ -15,6 +15,10 @@ public record ReportCreateRequest(
         @NotNull
         Long locationId,
 
+        @Schema(description = "제목")
+        @NotBlank
+        String title,
+
         @Schema(description = "리포트 종류", example = "WEEKLY")
         @NotNull
         ReportType reportType,
