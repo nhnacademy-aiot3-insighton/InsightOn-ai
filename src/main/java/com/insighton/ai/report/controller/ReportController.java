@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -54,8 +55,11 @@ public class ReportController {
     public ResponseEntity<ReportDetailResponse> getReport(
             @Parameter(description = "리포트 ID", example = "1",
                     schema = @Schema(type = "integer", format = "int64"))
-            @PathVariable Long reportId
+            @PathVariable Long reportId,
+            @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        return ResponseEntity.ok(reportService.findReport(reportId));
+        return ResponseEntity.ok(reportService.findReport(reportId, userId));
     }
 }

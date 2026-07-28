@@ -112,4 +112,24 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
         return hourlyTelemetryStatRepository.findByLocationIdAndLogHour(locationId, logHour)
                 .map(HourlyTelemetryStatResponse::from);
     }
+
+    @Transactional
+    @Override
+    public void deleteByLocation(Long locationId) {
+        if (locationId == null) {
+            throw new InvalidRequestException("locationId는 필수값입니다.");
+        }
+        hourlyTelemetryStatRepository.deleteByLocationId(locationId);
+        log.info("텔레메트리 집계 일괄 삭제 - locationId:{}", locationId);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByLocations(List<Long> locationIds) {
+        if (locationIds == null || locationIds.isEmpty()) {
+            throw new InvalidRequestException("locationIds는 필수값입니다.");
+        }
+        hourlyTelemetryStatRepository.deleteByLocationIdIn(locationIds);
+        log.info("텔레메트리 집계 일괄 삭제 - locationIds:{}", locationIds);
+    }
 }

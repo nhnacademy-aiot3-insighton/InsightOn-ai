@@ -8,8 +8,11 @@ public interface EngineAlertService {
 
     List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId);
 
-    EngineAlertResponse findEngineAlert(Long engineAlertId);
+    EngineAlertResponse findEngineAlert(Long engineAlertId, Long userId);
 
     EngineAlertResponse create(EngineAlertCreateRequest request);
 
+    void deleteByGroup(Long groupId);
+
+    void deleteByLocation(Long locationId);
 }
