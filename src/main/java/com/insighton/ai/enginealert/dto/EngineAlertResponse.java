@@ -11,14 +11,14 @@ public record EngineAlertResponse(
 
         @Schema(description = "알람 ID", example = "1")
         Long engineAlertId,
-        
+
         @Schema(description = "그룹 ID", example = "5")
         Long groupId,
 
         @Schema(description = "위치 ID", example = "42")
         Long locationId,
 
-        @Schema(description = "발생 플로우 ID (플로우 관여 없으면 null)", example = "7")
+        @Schema(description = "발생 플로우 ID", example = "7")
         Long flowId,
 
         @Schema(description = "제목")
