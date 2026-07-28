@@ -1,0 +1,79 @@
+package com.insighton.ai.enginealert.service.impl;
+
+import com.insighton.ai.enginealert.domain.EngineAlert;
+import com.insighton.ai.enginealert.dto.EngineAlertCreateRequest;
+import com.insighton.ai.enginealert.dto.EngineAlertResponse;
+import com.insighton.ai.enginealert.exception.EngineAlertNotFoundException;
+import com.insighton.ai.enginealert.repository.EngineAlertRepository;
+import com.insighton.ai.enginealert.service.EngineAlertService;
+import com.insighton.ai.exception.InvalidRequestException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
+import java.util.List;
+import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@Slf4j
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class EngineAlertServiceImpl implements EngineAlertService {
+
+    private final EngineAlertRepository engineAlertRepository;
+    private final Validator validator;
+
+    @Override
+    public List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId) {
+
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+
+        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId);
+        log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, size:{}", groupId, locationId, alerts.size());
+
+        return alerts.stream()
+                .map(EngineAlertResponse::from)
+                .toList();
+    }
+
+    @Override
+    public EngineAlertResponse findEngineAlert(Long engineAlertId) {
+
+        EngineAlert alert = engineAlertRepository.findById(engineAlertId)
+                .orElseThrow(() -> new EngineAlertNotFoundException(engineAlertId));
+
+        log.info("엔진 알람 조회 - engineAlertId:{}", engineAlertId);
+        return EngineAlertResponse.from(alert);
+    }
+
+    @Transactional
+    @Override
+    public EngineAlertResponse create(EngineAlertCreateRequest request) {
+        Set<ConstraintViolation<EngineAlertCreateRequest>> violations = validator.validate(request);
+
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
+
+        EngineAlert alert = EngineAlert.builder()
+                .groupId(request.groupId())
+                .locationId(request.locationId())
+                .flowId(request.flowId())
+                .title(request.title())
+                .message(request.message())
+                .severity(request.severity())
+                .triggerValue(request.triggerValue())
+                .build();
+
+        EngineAlert savedAlert = engineAlertRepository.save(alert);
+
+        log.info("엔진 알람 생성 - engineAlertId:{}, severity:{}", savedAlert.getEngineAlertId(), savedAlert.getSeverity());
+
+        return EngineAlertResponse.from(savedAlert);
+    }
+}
