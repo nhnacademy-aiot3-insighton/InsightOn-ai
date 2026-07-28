@@ -1,12 +1,13 @@
 package com.insighton.ai.enginealert.service;
 
+import com.insighton.ai.enginealert.domain.Severity;
 import com.insighton.ai.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.enginealert.dto.EngineAlertResponse;
 import java.util.List;
 
 public interface EngineAlertService {
 
-    List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId);
+    List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId, Severity severity);
 
     EngineAlertResponse findEngineAlert(Long engineAlertId, Long userId);
 
