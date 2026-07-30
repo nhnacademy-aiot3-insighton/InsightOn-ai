@@ -6,10 +6,10 @@ import java.util.List;
 
 public interface EngineAlertService {
 
-    List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId);
+    List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId);
 
-    EngineAlertResponse findEngineAlert(Long engineAlertId);
+    EngineAlertResponse getEngineAlert(Long engineAlertId);
 
-    EngineAlertResponse create(EngineAlertCreateRequest request);
+    EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request);
 
 }

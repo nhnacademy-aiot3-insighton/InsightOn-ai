@@ -27,7 +27,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     private final Validator validator;
 
     @Override
-    public List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId) {
+    public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId) {
 
         if (groupId == null) {
             throw new InvalidRequestException("groupId는 필수값입니다.");
@@ -42,7 +42,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     }
 
     @Override
-    public EngineAlertResponse findEngineAlert(Long engineAlertId) {
+    public EngineAlertResponse getEngineAlert(Long engineAlertId) {
 
         EngineAlert alert = engineAlertRepository.findById(engineAlertId)
                 .orElseThrow(() -> new EngineAlertNotFoundException(engineAlertId));
@@ -53,7 +53,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
 
     @Transactional
     @Override
-    public EngineAlertResponse create(EngineAlertCreateRequest request) {
+    public EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request) {
         Set<ConstraintViolation<EngineAlertCreateRequest>> violations = validator.validate(request);
 
         if (!violations.isEmpty()) {

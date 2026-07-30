@@ -35,7 +35,7 @@ public class EngineAlertController {
                     schema = @Schema(type = "integer", format = "int64"))
             @RequestParam(required = false) Long locationId) {
 
-        return ResponseEntity.ok(engineAlertService.findEngineAlerts(groupId, locationId));
+        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId));
     }
 
     @Operation(summary = "엔진 알람 상세 조회", description = "엔진 알람 ID로 상세 내용을 조회합니다.")
@@ -48,6 +48,6 @@ public class EngineAlertController {
             )
             @PathVariable Long engineAlertId) {
 
-        return ResponseEntity.ok(engineAlertService.findEngineAlert(engineAlertId));
+        return ResponseEntity.ok(engineAlertService.getEngineAlert(engineAlertId));
     }
 }
