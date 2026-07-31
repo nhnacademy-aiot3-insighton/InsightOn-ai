@@ -39,22 +39,19 @@ public class EngineAlertController {
             @Parameter(description = "심각도", example = "CRITICAL")
             @RequestParam(required = false) Severity severity) {
 
-        return ResponseEntity.ok(engineAlertService.findEngineAlerts(groupId, locationId, severity));
+        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId, severity));
     }
 
     @Operation(summary = "엔진 알람 상세 조회", description = "엔진 알람 ID로 상세 내용을 조회합니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiResponse(responseCode = "404", description = "엔진 알람 없음")
-    @GetMapping("/{engineAlertId}")
+    @GetMapping("/{engine-alert-id}")
     public ResponseEntity<EngineAlertResponse> getEngineAlert(
             @Parameter(description = "엔진 알람 ID", example = "1",
                     schema = @Schema(type = "integer", format = "int64")
             )
-            @PathVariable Long engineAlertId,
-            @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
-                    schema = @Schema(type = "integer", format = "int64"))
-            @RequestHeader("X-User-Id") Long userId) {
+            @PathVariable("engine-alert-id") Long engineAlertId) {
 
-        return ResponseEntity.ok(engineAlertService.findEngineAlert(engineAlertId, userId));
+        return ResponseEntity.ok(engineAlertService.getEngineAlert(engineAlertId));
     }
 }

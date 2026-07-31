@@ -30,15 +30,14 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     private final GroupAuthorizationService groupAuthorizationService;
 
     @Override
-    public List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId, Severity severity) {
+    public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity) {
 
         if (groupId == null) {
             throw new InvalidRequestException("groupId는 필수값입니다.");
         }
 
         List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity);
-        log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, severity:{}, size:{}", groupId, locationId, severity,
-                alerts.size());
+        log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, size:{}", groupId, locationId, alerts.size());
 
         return alerts.stream()
                 .map(EngineAlertResponse::from)
@@ -46,7 +45,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     }
     
     @Override
-    public EngineAlertResponse findEngineAlert(Long engineAlertId, Long userId) {
+    public EngineAlertResponse getEngineAlert(Long engineAlertId) {
 
         EngineAlert alert = engineAlertRepository.findById(engineAlertId)
                 .orElseThrow(() -> new EngineAlertNotFoundException(engineAlertId));
@@ -59,7 +58,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
 
     @Transactional
     @Override
-    public EngineAlertResponse create(EngineAlertCreateRequest request) {
+    public EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request) {
         Set<ConstraintViolation<EngineAlertCreateRequest>> violations = validator.validate(request);
 
         if (!violations.isEmpty()) {
