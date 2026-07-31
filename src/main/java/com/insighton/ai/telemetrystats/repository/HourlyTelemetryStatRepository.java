@@ -5,6 +5,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -22,4 +23,12 @@ public interface HourlyTelemetryStatRepository extends JpaRepository<HourlyTelem
                                      @Param("to") OffsetDateTime to);
 
     Optional<HourlyTelemetryStat> findByLocationIdAndLogHour(Long locationId, OffsetDateTime logHour);
+
+    @Modifying
+    @Query("delete from HourlyTelemetryStat h where h.locationId = :locationId")
+    void deleteByLocationId(@Param("locationId") Long locationId);
+
+    @Modifying
+    @Query("delete from HourlyTelemetryStat h where h.locationId in :locationIds")
+    void deleteByLocationIdIn(@Param("locationIds") List<Long> locationIds);
 }

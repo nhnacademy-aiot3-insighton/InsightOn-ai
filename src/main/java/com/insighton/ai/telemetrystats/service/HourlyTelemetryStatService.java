@@ -35,4 +35,13 @@ public interface HourlyTelemetryStatService {
      * @return 존재하면 시간별 통계 응답, 없으면(=아직 집계 전) 빈 Optional
      */
     Optional<HourlyTelemetryStatResponse> findByLocationAndLogHour(Long locationId, OffsetDateTime logHour);
+
+    void deleteByLocation(Long locationId);
+
+    /**
+     * 위치 ID 목록 기준 시간별 통계 일괄 삭제 (Core 그룹 삭제 이벤트 수신 시 호출되는 내부용 — 이 테이블은 group_id가 없어 location_id 목록으로 처리).
+     *
+     * @param locationIds 위치 ID 목록
+     */
+    void deleteByLocations(List<Long> locationIds);
 }

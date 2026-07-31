@@ -26,7 +26,12 @@ public interface DashboardNotificationService {
      * 알림 읽음 처리.
      *
      * @param dashboardNotificationId 알림 ID
+     * @param userId                  요청자 유저 ID
      * @return 읽음 처리된 알림 응답
      */
-    DashboardNotificationResponse markAsRead(Long dashboardNotificationId);
+    DashboardNotificationResponse markAsRead(Long dashboardNotificationId, Long userId);
+
+    void deleteByGroup(Long groupId);
+
+    void deleteByLocation(Long locationId);
 }

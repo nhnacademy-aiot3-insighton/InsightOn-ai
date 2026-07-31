@@ -1,6 +1,8 @@
 package com.insighton.ai.notification.service.impl;
 
 import com.insighton.ai.exception.InvalidRequestException;
+import com.insighton.ai.groupauth.domain.GroupRole;
+import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.notification.domain.DashboardNotification;
 import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.notification.dto.DashboardNotificationResponse;
@@ -26,6 +28,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
 
     private final DashboardNotificationRepository notificationRepository;
     private final Validator validator;
+    private final GroupAuthorizationService groupAuthorizationService;
 
     /**
      * 그룹 ID 기준 안 읽은 알림 목록 조회.
@@ -87,20 +90,43 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
      * 알림 읽음 처리.
      *
      * @param dashboardNotificationId 알림 ID
+     * @param userId                  요청자 유저 ID
      * @return 읽음 처리된 알림 응답
      * @throws DashboardNotificationNotFoundException 해당 ID의 알림 미존재 시
      */
     @Transactional
     @Override
-    public DashboardNotificationResponse markAsRead(Long dashboardNotificationId) {
+    public DashboardNotificationResponse markAsRead(Long dashboardNotificationId, Long userId) {
 
         DashboardNotification notification = notificationRepository.findById(dashboardNotificationId)
                 .orElseThrow(() -> new DashboardNotificationNotFoundException(dashboardNotificationId));
+
+        groupAuthorizationService.requireRole(notification.getGroupId(), userId, GroupRole.MANAGER);
 
         notification.markAsRead();
 
         log.info("알림 읽음 처리 - dashboardNotificationId:{}", dashboardNotificationId);
 
         return DashboardNotificationResponse.from(notification);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByGroup(Long groupId) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+        notificationRepository.deleteByGroupId(groupId);
+        log.info("대시보드 알람 일괄 삭제 - groupId:{}", groupId);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByLocation(Long locationId) {
+        if (locationId == null) {
+            throw new InvalidRequestException("locationId는 필수값입니다.");
+        }
+        notificationRepository.deleteByLocationId(locationId);
+        log.info("대시보드 알람 일괄 삭제 - locationId:{}", locationId);
     }
 }

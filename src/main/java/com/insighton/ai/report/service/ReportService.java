@@ -10,7 +10,11 @@ import java.util.List;
 public interface ReportService {
     List<ReportListResponse> findReports(Long groupId, Long locationId, ReportType reportType);
 
-    ReportDetailResponse findReport(Long reportId);
+    ReportDetailResponse findReport(Long reportId, Long userId);
 
     Report createReport(ReportCreateRequest request);
+
+    void deleteByGroup(Long groupId);
+
+    void deleteByLocation(Long locationId);
 }
