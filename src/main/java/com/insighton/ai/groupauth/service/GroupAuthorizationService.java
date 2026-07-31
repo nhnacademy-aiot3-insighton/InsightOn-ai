@@ -5,17 +5,20 @@ import com.insighton.ai.groupauth.client.GroupMemberResponse;
 import com.insighton.ai.groupauth.domain.GroupRole;
 import com.insighton.ai.groupauth.exception.ForbiddenException;
 import feign.FeignException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 /**
  * Core group_members 기준 그룹 소속·역할 검증 담당 서비스.
  */
 @Service
-@RequiredArgsConstructor
 public class GroupAuthorizationService {
 
     private final CoreGroupClient coreGroupClient;
+
+    public GroupAuthorizationService(@Lazy CoreGroupClient coreGroupClient) {
+        this.coreGroupClient = coreGroupClient;
+    }
 
     /**
      * userId가 groupId 멤버인지 확인.
