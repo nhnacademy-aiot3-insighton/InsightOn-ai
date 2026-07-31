@@ -7,11 +7,11 @@ import java.util.List;
 
 public interface EngineAlertService {
 
-    List<EngineAlertResponse> findEngineAlerts(Long groupId, Long locationId, Severity severity);
+    List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity);
 
-    EngineAlertResponse findEngineAlert(Long engineAlertId, Long userId);
+    EngineAlertResponse getEngineAlert(Long engineAlertId);
 
-    EngineAlertResponse create(EngineAlertCreateRequest request);
+    EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request);
 
     void deleteByGroup(Long groupId);
 
