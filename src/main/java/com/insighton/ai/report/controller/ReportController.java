@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/reports")
+@RequestMapping("/api/v1/reports")
 @RequiredArgsConstructor
 public class ReportController implements ReportApi {
 

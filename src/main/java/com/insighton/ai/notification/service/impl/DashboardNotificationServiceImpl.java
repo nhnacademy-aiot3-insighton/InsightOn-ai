@@ -4,6 +4,7 @@ import com.insighton.ai.exception.InvalidRequestException;
 import com.insighton.ai.groupauth.domain.GroupRole;
 import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.notification.domain.DashboardNotification;
+import com.insighton.ai.notification.dto.DashboardNotificationBroadcastEvent;
 import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.notification.dto.DashboardNotificationResponse;
 import com.insighton.ai.notification.exception.DashboardNotificationNotFoundException;
@@ -16,6 +17,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +31,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
     private final DashboardNotificationRepository notificationRepository;
     private final Validator validator;
     private final GroupAuthorizationService groupAuthorizationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * 그룹 ID 기준 안 읽은 알림 목록 조회.
@@ -80,10 +83,15 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
 
         DashboardNotification saved = notificationRepository.save(notification);
 
+        DashboardNotificationResponse response = DashboardNotificationResponse.from(saved);
+
+        //AfterCommit 이용 커밋 이후에만 이벤트 발행
+        eventPublisher.publishEvent(new DashboardNotificationBroadcastEvent(saved.getGroupId(), response));
+
         log.info("알림 생성 - dashboardNotificationId:{}, notificationType:{}, sourceId:{}",
                 saved.getDashboardNotificationId(), saved.getNotificationType(), saved.getSourceId());
 
-        return DashboardNotificationResponse.from(saved);
+        return response;
     }
 
     /**

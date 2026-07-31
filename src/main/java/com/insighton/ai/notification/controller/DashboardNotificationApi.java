@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @Tag(name = "Dashboard Notifications", description = "대시보드 알림 조회 API")
 public interface DashboardNotificationApi {
@@ -30,6 +31,13 @@ public interface DashboardNotificationApi {
             @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
                     schema = @Schema(type = "integer", format = "int64"))
             Long userId
-            
+
     );
+
+    @Operation(summary = "안 읽은 알림 실시간 구독", description = "groupId 기준으로 새 알림을 SSE로 실시간 수신합니다. 헤더처럼 앱 전역에서 연결을 계속 유지하는 용도입니다.")
+    @ApiResponse(responseCode = "200", description = "스트림 연결 성공")
+    SseEmitter streamNotifications(
+            @Parameter(description = "그룹 ID", example = "5", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            Long groupId);
 }
