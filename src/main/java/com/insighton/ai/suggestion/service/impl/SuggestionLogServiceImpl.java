@@ -2,6 +2,9 @@ package com.insighton.ai.suggestion.service.impl;
 
 import com.insighton.ai.exception.InvalidRequestException;
 import com.insighton.ai.groupauth.service.GroupAuthorizationService;
+import com.insighton.ai.notification.domain.NotificationType;
+import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
+import com.insighton.ai.notification.service.DashboardNotificationService;
 import com.insighton.ai.suggestion.domain.SuggestionLog;
 import com.insighton.ai.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.suggestion.dto.SuggestionLogResponse;
@@ -30,6 +33,7 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
     private final SuggestionLogRepository suggestionLogRepository;
     private final Validator validator;
     private final GroupAuthorizationService groupAuthorizationService;
+    private final DashboardNotificationService dashboardNotificationService;
 
     /**
      * 그룹 ID(필수), 위치 ID(선택) 조건에 따른 제안 로그 목록 조회.
@@ -100,6 +104,15 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         SuggestionLog savedSuggestionLog = suggestionLogRepository.save(suggestionLog);
 
         log.info("SuggestionLog 저장 - suggestionLogId:{}", savedSuggestionLog.getSuggestionLogId());
+
+        dashboardNotificationService.create(new DashboardNotificationCreateRequest(
+                savedSuggestionLog.getGroupId(),
+                savedSuggestionLog.getLocationId(),
+                NotificationType.SUGGESTION,
+                savedSuggestionLog.getSuggestionLogId(),
+                savedSuggestionLog.getTitle()
+        ));
+
         return SuggestionLogResponse.from(savedSuggestionLog);
     }
 

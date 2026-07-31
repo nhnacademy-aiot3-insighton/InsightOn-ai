@@ -18,7 +18,8 @@ public class RabbitConfig {
     public static final String GROUP_DELETED_ROUTING_KEY = "group.deleted";
     public static final String LOCATION_DELETED_ROUTING_KEY = "location.deleted";
 
-
+    public static final String NOTIFICATION_FANOUT_EXCHANGE = "insighton.dashboard-notification-fanout";
+    
     @Bean
     public TopicExchange coreEventsExchange() {
         return new TopicExchange(CORE_EVENTS_EXCHANGE);

@@ -7,6 +7,9 @@ import com.insighton.ai.report.dto.ReportCreateRequest;
 import com.insighton.ai.report.dto.ReportDetailResponse;
 import com.insighton.ai.report.dto.ReportListResponse;
 import com.insighton.ai.groupauth.service.GroupAuthorizationService;
+import com.insighton.ai.notification.domain.NotificationType;
+import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
+import com.insighton.ai.notification.service.DashboardNotificationService;
 import com.insighton.ai.report.exception.ReportNotFoundException;
 import com.insighton.ai.report.repository.ReportRepository;
 import com.insighton.ai.report.service.ReportService;
@@ -32,6 +35,7 @@ public class ReportServiceImpl implements ReportService {
     private final ReportRepository reportRepository;
     private final GroupAuthorizationService groupAuthorizationService;
     private final Validator validator;
+    private final DashboardNotificationService dashboardNotificationService;
 
     /**
      * 그룹 ID(필수), 위치 ID·리포트 종류(선택) 조건에 따른 리포트 목록 조회.
@@ -93,6 +97,15 @@ public class ReportServiceImpl implements ReportService {
 
         Report savedReport = reportRepository.save(report);
         log.info("리포트 생성 - reportId={}", savedReport.getReportId());
+
+        dashboardNotificationService.create(new DashboardNotificationCreateRequest(
+                savedReport.getGroupId(),
+                savedReport.getLocationId(),
+                NotificationType.REPORT,
+                savedReport.getReportId(),
+                savedReport.getTitle()
+        ));
+
         return savedReport;
     }
 
