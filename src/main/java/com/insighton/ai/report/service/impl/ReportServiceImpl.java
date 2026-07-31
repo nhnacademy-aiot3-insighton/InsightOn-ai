@@ -10,7 +10,11 @@ import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.report.exception.ReportNotFoundException;
 import com.insighton.ai.report.repository.ReportRepository;
 import com.insighton.ai.report.service.ReportService;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validator;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,7 @@ public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
     private final GroupAuthorizationService groupAuthorizationService;
+    private final Validator validator;
 
     /**
      * 그룹 ID(필수), 위치 ID·리포트 종류(선택) 조건에 따른 리포트 목록 조회.
@@ -68,10 +73,16 @@ public class ReportServiceImpl implements ReportService {
      *
      * @param request 리포트 생성 요청
      * @return 저장된 리포트 엔티티
+     * @throws ConstraintViolationException 요청값 검증 실패 시
      */
     @Transactional
     @Override
     public Report createReport(ReportCreateRequest request) {
+        Set<ConstraintViolation<ReportCreateRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new ConstraintViolationException(violations);
+        }
+
         Report report = Report.builder()
                 .groupId(request.groupId())
                 .locationId(request.locationId())

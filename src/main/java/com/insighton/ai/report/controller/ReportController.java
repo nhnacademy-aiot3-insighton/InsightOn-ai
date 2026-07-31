@@ -51,11 +51,11 @@ public class ReportController {
     @Operation(summary = "리포트 상세 조회", description = "리포트 ID로 본문을 포함한 상세 내용을 조회한다.")
     @ApiResponse(responseCode = "200", description = "조회 성공", content = @Content(schema = @Schema(implementation = ReportDetailResponse.class)))
     @ApiResponse(responseCode = "404", description = "리포트 없음", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    @GetMapping("/{reportId}")
+    @GetMapping("/{report-id}")
     public ResponseEntity<ReportDetailResponse> getReport(
             @Parameter(description = "리포트 ID", example = "1",
                     schema = @Schema(type = "integer", format = "int64"))
-            @PathVariable Long reportId,
+            @PathVariable("report-id") Long reportId,
             @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
                     schema = @Schema(type = "integer", format = "int64"))
             @RequestHeader("X-User-Id") Long userId
