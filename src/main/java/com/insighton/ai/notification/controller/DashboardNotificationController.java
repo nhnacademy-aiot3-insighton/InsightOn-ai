@@ -41,10 +41,10 @@ public class DashboardNotificationController {
     @ApiResponse(responseCode = "200", description = "처리 성공")
     @ApiResponse(responseCode = "403", description = "그룹 비소속 또는 권한 부족")
     @ApiResponse(responseCode = "404", description = "알림 없음")
-    @PostMapping("/{dashboardNotification-id}/read")
+    @PostMapping("/{dashboard-notification-id}/read")
     public ResponseEntity<DashboardNotificationResponse> markAsRead(
             @Parameter(description = "알림 ID", example = "1", schema = @Schema(type = "integer", format = "int64"))
-            @PathVariable("dashboardNotification-id") Long dashboardNotificationId,
+            @PathVariable("dashboard-notification-id") Long dashboardNotificationId,
             @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
                     schema = @Schema(type = "integer", format = "int64"))
             @RequestHeader("X-User-Id") Long userId
