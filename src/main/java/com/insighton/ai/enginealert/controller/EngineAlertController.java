@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/engine-alerts")
+@RequestMapping("/api/v1/engine-alerts")
 @RequiredArgsConstructor
 public class EngineAlertController implements EngineAlertApi {
 

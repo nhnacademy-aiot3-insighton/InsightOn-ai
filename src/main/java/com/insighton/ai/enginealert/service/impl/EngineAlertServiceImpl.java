@@ -9,6 +9,9 @@ import com.insighton.ai.enginealert.repository.EngineAlertRepository;
 import com.insighton.ai.enginealert.service.EngineAlertService;
 import com.insighton.ai.exception.InvalidRequestException;
 import com.insighton.ai.groupauth.service.GroupAuthorizationService;
+import com.insighton.ai.notification.domain.NotificationType;
+import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
+import com.insighton.ai.notification.service.DashboardNotificationService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
@@ -28,6 +31,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     private final EngineAlertRepository engineAlertRepository;
     private final Validator validator;
     private final GroupAuthorizationService groupAuthorizationService;
+    private final DashboardNotificationService dashboardNotificationService;
 
     @Override
     public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity) {
@@ -78,6 +82,14 @@ public class EngineAlertServiceImpl implements EngineAlertService {
         EngineAlert savedAlert = engineAlertRepository.save(alert);
 
         log.info("엔진 알람 생성 - engineAlertId:{}, severity:{}", savedAlert.getEngineAlertId(), savedAlert.getSeverity());
+
+        dashboardNotificationService.create(new DashboardNotificationCreateRequest(
+                savedAlert.getGroupId(),
+                savedAlert.getLocationId(),
+                NotificationType.ENGINE_ALERT,
+                savedAlert.getEngineAlertId(),
+                savedAlert.getTitle()
+        ));
 
         return EngineAlertResponse.from(savedAlert);
     }

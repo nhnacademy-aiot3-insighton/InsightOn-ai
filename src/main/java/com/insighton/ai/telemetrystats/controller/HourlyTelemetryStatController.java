@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/hourly-telemetry-stats")
+@RequestMapping("/api/v1/hourly-telemetry-stats")
 @RequiredArgsConstructor
 public class HourlyTelemetryStatController implements HourlyTelemetryStatApi {
 
