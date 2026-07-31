@@ -25,8 +25,11 @@ public class SseEmitterRegistry {
      * @param emitter 등록할 SSE 커넥션
      */
     public void sseRegister(Long groupId, SseEmitter emitter) {
-        emittersByGroup.computeIfAbsent(groupId, key ->
-                new CopyOnWriteArrayList<>()).add(emitter);
+        emittersByGroup.compute(groupId, (key, emitters) -> {
+            List<SseEmitter> list = (emitters != null) ? emitters : new CopyOnWriteArrayList<>();
+            list.add(emitter);
+            return list;
+        });
 
         emitter.onCompletion(() -> sseRemove(groupId, emitter));
         emitter.onTimeout(() -> sseRemove(groupId, emitter));
@@ -41,15 +44,10 @@ public class SseEmitterRegistry {
      * @param emitter 제거할 SSE 커넥션
      */
     public void sseRemove(Long groupId, SseEmitter emitter) {
-        List<SseEmitter> emitters = emittersByGroup.get(groupId);
-
-        if (emitters != null) {
+        emittersByGroup.computeIfPresent(groupId, (key, emitters) -> {
             emitters.remove(emitter);
-
-            if (emitters.isEmpty()) {
-                emittersByGroup.remove(groupId);
-            }
-        }
+            return emitters.isEmpty() ? null : emitters;
+        });
     }
 
     /**
