@@ -1,5 +1,6 @@
 package com.insighton.ai.enginealert.controller;
 
+import com.insighton.ai.enginealert.domain.Severity;
 import com.insighton.ai.enginealert.dto.EngineAlertResponse;
 import com.insighton.ai.enginealert.service.EngineAlertService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,20 +34,22 @@ public class EngineAlertController {
             @RequestParam Long groupId,
             @Parameter(description = "위치 ID", example = "42",
                     schema = @Schema(type = "integer", format = "int64"))
-            @RequestParam(required = false) Long locationId) {
+            @RequestParam(required = false) Long locationId,
+            @Parameter(description = "심각도", example = "CRITICAL")
+            @RequestParam(required = false) Severity severity) {
 
-        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId));
+        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId, severity));
     }
 
     @Operation(summary = "엔진 알람 상세 조회", description = "엔진 알람 ID로 상세 내용을 조회합니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @ApiResponse(responseCode = "404", description = "엔진 알람 없음")
-    @GetMapping("{engineAlertId}")
+    @GetMapping("/{engine-alert-id}")
     public ResponseEntity<EngineAlertResponse> getEngineAlert(
             @Parameter(description = "엔진 알람 ID", example = "1",
-                    schema = @Schema(type = "integer", format = "int 64")
+                    schema = @Schema(type = "integer", format = "int64")
             )
-            @PathVariable Long engineAlertId) {
+            @PathVariable("engine-alert-id") Long engineAlertId) {
 
         return ResponseEntity.ok(engineAlertService.getEngineAlert(engineAlertId));
     }

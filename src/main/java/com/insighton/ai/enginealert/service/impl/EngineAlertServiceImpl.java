@@ -1,6 +1,7 @@
 package com.insighton.ai.enginealert.service.impl;
 
 import com.insighton.ai.enginealert.domain.EngineAlert;
+import com.insighton.ai.enginealert.domain.Severity;
 import com.insighton.ai.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.enginealert.dto.EngineAlertResponse;
 import com.insighton.ai.enginealert.exception.EngineAlertNotFoundException;
@@ -27,13 +28,13 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     private final Validator validator;
 
     @Override
-    public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId) {
+    public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity) {
 
         if (groupId == null) {
             throw new InvalidRequestException("groupId는 필수값입니다.");
         }
 
-        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId);
+        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity);
         log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, size:{}", groupId, locationId, alerts.size());
 
         return alerts.stream()
