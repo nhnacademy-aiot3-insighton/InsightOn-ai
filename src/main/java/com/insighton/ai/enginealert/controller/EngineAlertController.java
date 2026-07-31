@@ -27,7 +27,7 @@ public class EngineAlertController implements EngineAlertApi {
             @RequestParam(required = false) Long locationId,
             @RequestParam(required = false) Severity severity
     ) {
-        return ResponseEntity.ok(engineAlertService.findEngineAlerts(groupId, locationId, severity));
+        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId, severity));
     }
 
     @Override
@@ -36,6 +36,6 @@ public class EngineAlertController implements EngineAlertApi {
             @PathVariable Long engineAlertId,
             @RequestHeader("X-User-Id") Long userId
     ) {
-        return ResponseEntity.ok(engineAlertService.findEngineAlert(engineAlertId, userId));
+        return ResponseEntity.ok(engineAlertService.getEngineAlert(engineAlertId, userId));
     }
 }

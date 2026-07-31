@@ -9,7 +9,7 @@ public interface EngineAlertService {
 
     List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity);
 
-    EngineAlertResponse getEngineAlert(Long engineAlertId);
+    EngineAlertResponse getEngineAlert(Long engineAlertId, Long userId);
 
     EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request);
 

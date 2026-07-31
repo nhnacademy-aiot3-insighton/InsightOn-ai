@@ -30,5 +30,6 @@ public interface DashboardNotificationApi {
             @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
                     schema = @Schema(type = "integer", format = "int64"))
             Long userId
+            
     );
 }

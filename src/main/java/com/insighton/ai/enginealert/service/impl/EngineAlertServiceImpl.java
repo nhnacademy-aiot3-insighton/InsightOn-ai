@@ -45,7 +45,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     }
     
     @Override
-    public EngineAlertResponse getEngineAlert(Long engineAlertId) {
+    public EngineAlertResponse getEngineAlert(Long engineAlertId, Long userId) {
 
         EngineAlert alert = engineAlertRepository.findById(engineAlertId)
                 .orElseThrow(() -> new EngineAlertNotFoundException(engineAlertId));
