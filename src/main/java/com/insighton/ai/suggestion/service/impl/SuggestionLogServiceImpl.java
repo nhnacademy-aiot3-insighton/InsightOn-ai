@@ -1,6 +1,7 @@
 package com.insighton.ai.suggestion.service.impl;
 
 import com.insighton.ai.exception.InvalidRequestException;
+import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.suggestion.domain.SuggestionLog;
 import com.insighton.ai.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.suggestion.dto.SuggestionLogResponse;
@@ -28,6 +29,7 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
 
     private final SuggestionLogRepository suggestionLogRepository;
     private final Validator validator;
+    private final GroupAuthorizationService groupAuthorizationService;
 
     /**
      * 그룹 ID(필수), 위치 ID(선택) 조건에 따른 제안 로그 목록 조회.
@@ -56,13 +58,16 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
      * 제안 로그 ID 기준 단건 상세 조회.
      *
      * @param suggestionLogId 제안 로그 ID
+     * @param userId          요청자 유저 ID
      * @return 제안 로그 응답
      * @throws SuggestionLogNotFoundException 해당 ID의 제안 로그 미존재 시
      */
     @Override
-    public SuggestionLogResponse findSuggestionLog(Long suggestionLogId) {
+    public SuggestionLogResponse findSuggestionLog(Long suggestionLogId, Long userId) {
         SuggestionLog suggestionLog = suggestionLogRepository.findById(suggestionLogId)
                 .orElseThrow(() -> new SuggestionLogNotFoundException(suggestionLogId));
+
+        groupAuthorizationService.requireMembership(suggestionLog.getGroupId(), userId);
 
         log.info("SuggestionLog 조회 - suggestionLogId:{}", suggestionLogId);
         return SuggestionLogResponse.from(suggestionLog);
@@ -102,14 +107,17 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
      * AI 제안 수락 처리(is_accepted=true). Core 제어 API 연동은 추후 반영 예정.
      *
      * @param suggestionLogId 제안 로그 ID
+     * @param userId          요청자 유저 ID
      * @return 수락 처리된 제안 로그 응답
      * @throws SuggestionLogNotFoundException 해당 ID의 제안 로그 미존재 시
      */
     @Transactional
     @Override
-    public SuggestionLogResponse accept(Long suggestionLogId) {
+    public SuggestionLogResponse accept(Long suggestionLogId, Long userId) {
         SuggestionLog suggestionLog = suggestionLogRepository.findById(suggestionLogId)
                 .orElseThrow(() -> new SuggestionLogNotFoundException(suggestionLogId));
+
+        groupAuthorizationService.requireMembership(suggestionLog.getGroupId(), userId);
 
         suggestionLog.changeAccepted(true);
 
@@ -123,17 +131,41 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
      * AI 제안 거절 처리(is_accepted=false).
      *
      * @param suggestionLogId 제안 로그 ID
+     * @param userId          요청자 유저 ID
      * @return 거절 처리된 제안 로그 응답
      * @throws SuggestionLogNotFoundException 해당 ID의 제안 로그 미존재 시
      */
     @Transactional
     @Override
-    public SuggestionLogResponse reject(Long suggestionLogId) {
+    public SuggestionLogResponse reject(Long suggestionLogId, Long userId) {
         SuggestionLog suggestionLog = suggestionLogRepository.findById(suggestionLogId)
                 .orElseThrow(() -> new SuggestionLogNotFoundException(suggestionLogId));
+
+        groupAuthorizationService.requireMembership(suggestionLog.getGroupId(), userId);
+
         log.info("AI 제안 거절 - suggestionLogId:{}", suggestionLogId);
 
         suggestionLog.changeAccepted(false);
         return SuggestionLogResponse.from(suggestionLog);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByGroup(Long groupId) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+        suggestionLogRepository.deleteByGroupId(groupId);
+        log.info("제안 로그 일괄 삭제 - groupId:{}", groupId);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByLocation(Long locationId) {
+        if (locationId == null) {
+            throw new InvalidRequestException("locationId는 필수값입니다.");
+        }
+        suggestionLogRepository.deleteByLocationId(locationId);
+        log.info("제안 로그 일괄 삭제 - locationId:{}", locationId);
     }
 }

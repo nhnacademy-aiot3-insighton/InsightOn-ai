@@ -1,6 +1,7 @@
 package com.insighton.ai.exception;
 
 import com.insighton.ai.enginealert.exception.EngineAlertNotFoundException;
+import com.insighton.ai.groupauth.exception.ForbiddenException;
 import com.insighton.ai.notification.exception.DashboardNotificationNotFoundException;
 import com.insighton.ai.report.exception.ReportNotFoundException;
 import com.insighton.ai.suggestion.exception.SuggestionLogNotFoundException;
@@ -24,6 +25,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of(HttpStatus.NOT_FOUND.value(), e.getMessage()));
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(ForbiddenException e) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(ErrorResponse.of(HttpStatus.FORBIDDEN.value(), e.getMessage()));
     }
 
     @ExceptionHandler(InvalidRequestException.class)

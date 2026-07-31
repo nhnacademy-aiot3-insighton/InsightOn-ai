@@ -8,6 +8,7 @@ import com.insighton.ai.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.enginealert.repository.EngineAlertRepository;
 import com.insighton.ai.enginealert.service.EngineAlertService;
 import com.insighton.ai.exception.InvalidRequestException;
+import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
@@ -26,6 +27,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
 
     private final EngineAlertRepository engineAlertRepository;
     private final Validator validator;
+    private final GroupAuthorizationService groupAuthorizationService;
 
     @Override
     public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity) {
@@ -41,12 +43,14 @@ public class EngineAlertServiceImpl implements EngineAlertService {
                 .map(EngineAlertResponse::from)
                 .toList();
     }
-
+    
     @Override
     public EngineAlertResponse getEngineAlert(Long engineAlertId) {
 
         EngineAlert alert = engineAlertRepository.findById(engineAlertId)
                 .orElseThrow(() -> new EngineAlertNotFoundException(engineAlertId));
+
+        groupAuthorizationService.requireMembership(alert.getGroupId(), userId);
 
         log.info("엔진 알람 조회 - engineAlertId:{}", engineAlertId);
         return EngineAlertResponse.from(alert);
@@ -76,5 +80,25 @@ public class EngineAlertServiceImpl implements EngineAlertService {
         log.info("엔진 알람 생성 - engineAlertId:{}, severity:{}", savedAlert.getEngineAlertId(), savedAlert.getSeverity());
 
         return EngineAlertResponse.from(savedAlert);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByGroup(Long groupId) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+        engineAlertRepository.deleteByGroupId(groupId);
+        log.info("엔진 알람 일괄 삭제 - groupId:{}", groupId);
+    }
+
+    @Transactional
+    @Override
+    public void deleteByLocation(Long locationId) {
+        if (locationId == null) {
+            throw new InvalidRequestException("locationId는 필수값입니다.");
+        }
+        engineAlertRepository.deleteByLocationId(locationId);
+        log.info("엔진 알람 일괄 삭제 - locationId:{}", locationId);
     }
 }

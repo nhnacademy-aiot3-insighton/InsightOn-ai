@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,9 +47,12 @@ public class SuggestionLogController {
     public ResponseEntity<SuggestionLogResponse> getSuggestionLog(
             @Parameter(description = "제안 로그 ID", example = "1",
                     schema = @Schema(type = "integer", format = "int64"))
-            @PathVariable Long suggestionLogId
+            @PathVariable Long suggestionLogId,
+            @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        return ResponseEntity.ok(suggestionLogService.findSuggestionLog(suggestionLogId));
+        return ResponseEntity.ok(suggestionLogService.findSuggestionLog(suggestionLogId, userId));
     }
 
     @Operation(summary = "제안 수락", description = "AI의 제안을 수락합니다. (지금은 상태만 변경, Core 제어 API 실행은 Issue 08에서 추가 예정)")
@@ -57,9 +61,12 @@ public class SuggestionLogController {
     @PostMapping("/{suggestionLogId}/accept")
     public ResponseEntity<SuggestionLogResponse> accept(
             @Parameter(description = "제안 로그 ID", example = "1", schema = @Schema(type = "integer", format = "int64"))
-            @PathVariable Long suggestionLogId
+            @PathVariable Long suggestionLogId,
+            @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        return ResponseEntity.ok(suggestionLogService.accept(suggestionLogId));
+        return ResponseEntity.ok(suggestionLogService.accept(suggestionLogId, userId));
     }
 
     @Operation(summary = "제안 거절", description = "AI의 제안을 거절합니다.")
@@ -68,8 +75,11 @@ public class SuggestionLogController {
     @PostMapping("/{suggestionLogId}/reject")
     public ResponseEntity<SuggestionLogResponse> reject(
             @Parameter(description = "제안 로그 ID", example = "1", schema = @Schema(type = "integer", format = "int64"))
-            @PathVariable Long suggestionLogId
+            @PathVariable Long suggestionLogId,
+            @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            @RequestHeader("X-User-Id") Long userId
     ) {
-        return ResponseEntity.ok(suggestionLogService.reject(suggestionLogId));
+        return ResponseEntity.ok(suggestionLogService.reject(suggestionLogId, userId));
     }
 }

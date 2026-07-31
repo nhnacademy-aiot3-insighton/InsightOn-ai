@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -25,7 +26,7 @@ public class EngineAlertController {
 
     private final EngineAlertService engineAlertService;
 
-    @Operation(summary = "엔진 알람 목록 조회", description = "groupId 기준으로 엔진 알람 목록을 조회합니다. locationId로 추가 필터링 가능합니다.")
+    @Operation(summary = "엔진 알람 목록 조회", description = "groupId 기준으로 엔진 알람 목록을 조회합니다. locationId/severity로 추가 필터링 가능합니다.")
     @ApiResponse(responseCode = "200", description = "조회 성공")
     @GetMapping
     public ResponseEntity<List<EngineAlertResponse>> getEngineAlerts(

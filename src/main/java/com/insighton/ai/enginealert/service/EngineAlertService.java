@@ -13,4 +13,7 @@ public interface EngineAlertService {
 
     EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request);
 
+    void deleteByGroup(Long groupId);
+
+    void deleteByLocation(Long locationId);
 }
