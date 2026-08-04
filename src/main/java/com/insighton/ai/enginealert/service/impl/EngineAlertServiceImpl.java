@@ -1,20 +1,22 @@
 package com.insighton.ai.enginealert.service.impl;
 
+import com.insighton.ai.coreapi.service.GroupAuthorizationService;
 import com.insighton.ai.enginealert.domain.EngineAlert;
 import com.insighton.ai.enginealert.domain.Severity;
 import com.insighton.ai.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.enginealert.dto.EngineAlertResponse;
+import com.insighton.ai.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.enginealert.repository.EngineAlertRepository;
 import com.insighton.ai.enginealert.service.EngineAlertService;
 import com.insighton.ai.exception.InvalidRequestException;
-import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.notification.domain.NotificationType;
 import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.notification.service.DashboardNotificationService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +49,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
                 .map(EngineAlertResponse::from)
                 .toList();
     }
-    
+
     @Override
     public EngineAlertResponse getEngineAlert(Long engineAlertId, Long userId) {
 
@@ -112,5 +114,21 @@ public class EngineAlertServiceImpl implements EngineAlertService {
         }
         engineAlertRepository.deleteByLocationId(locationId);
         log.info("엔진 알람 일괄 삭제 - locationId:{}", locationId);
+    }
+
+    @Override
+    public EngineAlertSummary summarizePeriod(Long locationId, OffsetDateTime from, OffsetDateTime to) {
+        List<EngineAlert> alerts = engineAlertRepository.searchByPeriod(locationId, from, to);
+
+        long criticalCount = alerts.stream().filter(a -> a.getSeverity() == Severity.CRITICAL).count();
+        long warningCount = alerts.stream().filter(a -> a.getSeverity() == Severity.WARNING).count();
+
+        List<String> topAlertTitles = alerts.stream()
+                .filter(a -> a.getSeverity() == Severity.CRITICAL)
+                .map(EngineAlert::getTitle)
+                .limit(5)
+                .toList();
+
+        return new EngineAlertSummary(criticalCount, warningCount, topAlertTitles);
     }
 }

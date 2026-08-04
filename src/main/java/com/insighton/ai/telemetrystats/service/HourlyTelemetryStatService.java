@@ -2,6 +2,7 @@ package com.insighton.ai.telemetrystats.service;
 
 import com.insighton.ai.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
 import com.insighton.ai.telemetrystats.dto.HourlyTelemetryStatResponse;
+import com.insighton.ai.telemetrystats.dto.PeriodTelemetrySummary;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -44,4 +45,24 @@ public interface HourlyTelemetryStatService {
      * @param locationIds 위치 ID 목록
      */
     void deleteByLocations(List<Long> locationIds);
+
+    /**
+     * from~to 기간 내 시간별 통계를 재집계한다. 일간 조회(대시보드), 주간/월간 리포트 생성 배치가 공통으로 사용한다.
+     *
+     * @param locationId 위치 ID(필수)
+     * @param from       집계 시작(포함)
+     * @param to         집계 종료(포함)
+     * @return 기간 재집계 결과
+     */
+    PeriodTelemetrySummary summarizePeriod(Long locationId, OffsetDateTime from, OffsetDateTime to);
+
+    /**
+     * from~to 기간 내 hourly_telemetry_stats에 실제로 데이터가 존재하는 location_id 목록을 조회한다.
+     * 리포트 생성 배치가 Core 조회 없이 집계 대상을 확보하는 데 사용한다.
+     *
+     * @param from 조회 시작(포함)
+     * @param to   조회 종료(포함)
+     * @return distinct location_id 목록
+     */
+    List<Long> findDistinctLocationIds(OffsetDateTime from, OffsetDateTime to);
 }

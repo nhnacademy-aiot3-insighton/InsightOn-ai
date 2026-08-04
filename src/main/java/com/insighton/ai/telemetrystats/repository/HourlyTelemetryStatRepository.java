@@ -31,4 +31,12 @@ public interface HourlyTelemetryStatRepository extends JpaRepository<HourlyTelem
     @Modifying
     @Query("delete from HourlyTelemetryStat h where h.locationId in :locationIds")
     void deleteByLocationIdIn(@Param("locationIds") List<Long> locationIds);
+
+
+    @Query("""
+                   select distinct h.locationId from HourlyTelemetryStat h
+                   where h.logHour >= :from
+                   and h.logHour <= :to
+            """)
+    List<Long> findDistinctLocationIds(OffsetDateTime from, OffsetDateTime to);
 }
