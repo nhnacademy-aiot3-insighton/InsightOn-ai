@@ -1,9 +1,9 @@
-package com.insighton.ai.groupauth.service;
+package com.insighton.ai.coreapi.service;
 
-import com.insighton.ai.groupauth.client.CoreGroupClient;
-import com.insighton.ai.groupauth.client.GroupMemberResponse;
-import com.insighton.ai.groupauth.domain.GroupRole;
-import com.insighton.ai.groupauth.exception.ForbiddenException;
+import com.insighton.ai.coreapi.client.CoreClient;
+import com.insighton.ai.coreapi.domain.GroupRole;
+import com.insighton.ai.coreapi.dto.GroupMemberResponse;
+import com.insighton.ai.coreapi.exception.ForbiddenException;
 import feign.FeignException;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -14,10 +14,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class GroupAuthorizationService {
 
-    private final CoreGroupClient coreGroupClient;
+    private final CoreClient coreClient;
 
-    public GroupAuthorizationService(@Lazy CoreGroupClient coreGroupClient) {
-        this.coreGroupClient = coreGroupClient;
+    public GroupAuthorizationService(@Lazy CoreClient coreClient) {
+        this.coreClient = coreClient;
     }
 
     /**
@@ -30,7 +30,7 @@ public class GroupAuthorizationService {
      */
     public GroupRole requireMembership(Long groupId, Long userId) {
         try {
-            GroupMemberResponse member = coreGroupClient.getGroupMemberByUserId(groupId, userId);
+            GroupMemberResponse member = coreClient.getGroupMemberByUserId(groupId, userId);
 
             if (!groupId.equals(member.groupId())) {
                 throw new ForbiddenException(

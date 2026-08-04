@@ -1,4 +1,4 @@
-package com.insighton.ai.groupauth.domain;
+package com.insighton.ai.coreapi.domain;
 
 public enum GroupRole {
     SUPER_MANAGER,

@@ -1,7 +1,7 @@
 package com.insighton.ai.exception;
 
+import com.insighton.ai.coreapi.exception.ForbiddenException;
 import com.insighton.ai.enginealert.exception.EngineAlertNotFoundException;
-import com.insighton.ai.groupauth.exception.ForbiddenException;
 import com.insighton.ai.notification.exception.DashboardNotificationNotFoundException;
 import com.insighton.ai.report.exception.ReportNotFoundException;
 import com.insighton.ai.suggestion.exception.SuggestionLogNotFoundException;

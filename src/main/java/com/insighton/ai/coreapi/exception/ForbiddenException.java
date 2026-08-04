@@ -1,4 +1,4 @@
-package com.insighton.ai.groupauth.exception;
+package com.insighton.ai.coreapi.exception;
 
 public class ForbiddenException extends RuntimeException {
     public ForbiddenException(String message) {
