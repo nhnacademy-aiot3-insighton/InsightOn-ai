@@ -165,10 +165,20 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
         Map<String, Double> maxByMetric = new HashMap<>();
         Map<String, Double> minByMetric = new HashMap<>();
         Map<String, Double> actuatorSum = new HashMap<>();
+        // 지표별 · 시간대(0~23시)별 원본 시간별 평균값 리스트. 기간 전체를 하나로 뭉개는 avgSamples와 달리
+        // "몇 시에 값이 오르는지"를 나중에 뽑아낼 수 있도록 시간대 차원을 유지한 채로 모아둠.
+        Map<String, Map<Integer, List<Double>>> hourlySamples = new HashMap<>();
 
         for (HourlyTelemetryStat stat : stats) {
-            parseJson(stat.getMetricsAvg()).forEach((key, value) ->
-                    avgSamples.computeIfAbsent(key, k -> new ArrayList<>()).add(value));
+            // 이 시간별 통계 row가 하루 중 몇 시(0~23) 데이터인지 추출
+            int hourOfDay = stat.getLogHour().getHour();
+
+            parseJson(stat.getMetricsAvg()).forEach((key, value) -> {
+                avgSamples.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+                // 신규 추가: 같은 값을 시간대별 버킷에도 같이 적재
+                hourlySamples.computeIfAbsent(key, k -> new HashMap<>())
+                        .computeIfAbsent(hourOfDay, h -> new ArrayList<>()).add(value);
+            });
 
             parseJson(stat.getMetricsMax()).forEach((key, value) ->
                     maxByMetric.merge(key, value, Math::max));
@@ -186,10 +196,18 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
                 .collect(Collectors.toMap(Map.Entry::getKey, entry ->
                         average(entry.getValue())));
 
+        // hourlySamples(지표 → 시간대 → 원본값 리스트)를 시간대별 평균(지표 → 시간대 → 평균값)으로 축약
+        Map<String, Map<Integer, Double>> hourlyAvgByMetric = hourlySamples.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry ->
+                        entry.getValue().entrySet().stream()
+                                .collect(Collectors.toMap(Map.Entry::getKey,
+                                        hourEntry -> average(hourEntry.getValue())))));
+
         log.info("기간별 통계 재집계 - locationId:{}, from:{}, to:{}, 대상 시간 수:{}",
                 locationId, from, to, stats.size());
 
-        return new PeriodTelemetrySummary(locationId, from, to, avgByMetrics, maxByMetric, minByMetric, actuatorSum);
+        return new PeriodTelemetrySummary(locationId, from, to, avgByMetrics, maxByMetric, minByMetric, actuatorSum,
+                hourlyAvgByMetric);
     }
 
     @Override

@@ -32,24 +32,36 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class HourlyTelemetryAggregationScheduler {
 
+    private static final int LOOKBACK_HOURS = 3;
+
     private final InfluxDBClient influxDBClient;
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${influx.bucket}")
+    @Value("${influxdb.bucket}")
     private String bucket;
 
     /**
-     * 정각 배치 진입점. 직전 1시간(예: 15시 정각 실행 시 14시~15시) 구간을 집계 윈도우로 잡고, sensor_data 기준 평균/최고/최저와 actuator_status 기준 가동 분을 각각
-     * 조회한 뒤 location별로 묶어 저장한다. ShedLock이 걸려있어도, 수동 재실행 등 예외 상황을 대비해 저장 전 중복 집계 여부를 한 번 더 확인한다. location하나가 실패해도 나머지는
-     * 계속 처리
+     * 정각 배치 진입점. 직전 {@value LOOKBACK_HOURS}개 시간 창을 매번 다시 훑어, sensor_data 기준 평균/최고/최저와 actuator_status 기준 가동 분을 조회한 뒤
+     * location별로 저장. 이미 저장된 (location, logHour)는 findByLocationAndLogHour로 건너뜀, 이전 실행에서 예외로 실패했던 시간 창도 자동으로 재시도된다.
+     * location 하나가 실패해도 나머지는 계속 처리한다.
      */
     @Scheduled(cron = "0 0 * * * *")
     @SchedulerLock(name = "hourlyTelemetryAggregation", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     public void aggregate() {
-        OffsetDateTime windowEnd = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.HOURS);
-        OffsetDateTime windowStart = windowEnd.minusHours(1);
+        OffsetDateTime latestWindowEnd = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.HOURS);
 
+        for (int i = 0; i < LOOKBACK_HOURS; i++) {
+            OffsetDateTime windowEnd = latestWindowEnd.minusHours(i);
+            OffsetDateTime windowStart = windowEnd.minusHours(1);
+            aggregateWindow(windowStart, windowEnd);
+        }
+    }
+
+    /**
+     * 지정된 1시간 구간을 집계해 location별로 저장한다. 이미 집계된 (location, logHour)는 스킵하고, location 하나가 실패해도 나머지 location은 계속 처리한다.
+     */
+    private void aggregateWindow(OffsetDateTime windowStart, OffsetDateTime windowEnd) {
         Map<Long, Map<String, Double>> avgByLocation = querySensorAggregate("mean", windowStart, windowEnd);
         Map<Long, Map<String, Double>> maxByLocation = querySensorAggregate("max", windowStart, windowEnd);
         Map<Long, Map<String, Double>> minByLocation = querySensorAggregate("min", windowStart, windowEnd);
@@ -62,8 +74,6 @@ public class HourlyTelemetryAggregationScheduler {
         locationIds.addAll(actuatorByLocation.keySet());
 
         for (Long locationId : locationIds) {
-
-            //location별 예외 격리
             try {
                 if (hourlyTelemetryStatService.findByLocationAndLogHour(locationId, windowStart).isPresent()) {
                     log.info("시간별 통계 이미 집계됨, 스킵 - locationId:{}, logHour:{}", locationId, windowStart);
@@ -79,7 +89,7 @@ public class HourlyTelemetryAggregationScheduler {
                         actuatorByLocation.containsKey(locationId) ? toJson(actuatorByLocation.get(locationId)) : null
                 ));
             } catch (Exception e) {
-                log.error("시간별 통계 저장 실패 - locationId:{}, logHour: {}", locationId, windowStart, e);
+                log.error("시간별 통계 저장 실패 - locationId:{}, logHour:{}", locationId, windowStart, e);
             }
         }
     }
