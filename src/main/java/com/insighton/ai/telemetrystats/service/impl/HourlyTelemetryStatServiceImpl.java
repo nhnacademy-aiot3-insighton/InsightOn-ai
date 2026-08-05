@@ -180,6 +180,8 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
                     actuatorSum.merge(key, value, Double::sum));
         }
 
+        // TODO: 시간별 평균의 단순 평균(mean of means)이라 시간마다 원본 샘플 수가 다르면 실제 평균과 어긋날 수 있음.
+        //  hourly_telemetry_stats에 시간당 샘플 수(metrics_count) 컬럼을 추가해 가중평균으로 바꾸는 것을 고려할 것 — DB 스키마 변경 필요(ddl-auto=validate).
         Map<String, Double> avgByMetrics = avgSamples.entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry ->
                         average(entry.getValue())));
