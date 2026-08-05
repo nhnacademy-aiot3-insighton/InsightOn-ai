@@ -1,5 +1,7 @@
 package com.insighton.ai.suggestion.service.impl;
 
+import com.insighton.ai.coreapi.client.CoreClient;
+import com.insighton.ai.coreapi.dto.ActionPayload;
 import com.insighton.ai.coreapi.service.GroupAuthorizationService;
 import com.insighton.ai.exception.InvalidRequestException;
 import com.insighton.ai.notification.domain.NotificationType;
@@ -22,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * AI 제안 로그 조회·생성·수락/거절 처리 담당 서비스 구현체.
@@ -36,6 +39,8 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
     private final Validator validator;
     private final GroupAuthorizationService groupAuthorizationService;
     private final DashboardNotificationService dashboardNotificationService;
+    private final JsonMapper jsonMapper;
+    private final CoreClient coreClient;
 
     /**
      * 그룹 ID(필수), 위치 ID(선택) 조건에 따른 제안 로그 목록 조회.
@@ -119,7 +124,8 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
     }
 
     /**
-     * AI 제안 수락 처리(is_accepted=true). Core 제어 API 연동은 추후 반영 예정.
+     * AI 제안 수락 처리(is_accepted=true). actionPayload에 실제 액추에이터 명령이 담겨있으면 Core 제어 API를 호출해 즉시 실행하고, 창문 개방처럼 조언만 있는
+     * 제안(actuatorType 없음)이면 수락 처리만 하고 Core 호출은 생략한다.
      *
      * @param suggestionLogId 제안 로그 ID
      * @param userId          요청자 유저 ID
@@ -136,7 +142,11 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
 
         suggestionLog.changeAccepted(true);
 
-        //TODO: 나중에 core 시뮬레이터 조작 호출 (MQ)
+        ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
+        // TODO: Core 액추에이터 명령/값 API 확정되면 요청/응답 형식 재검토 — core-actuator-command-vocabulary-request.md 참고
+        if (actionPayload.actuatorType() != null) {
+            coreClient.executeActuatorCommand(actionPayload);
+        }
 
         log.info("AI 제안 수락 - suggestionLogId:{}", suggestionLogId);
         return SuggestionLogResponse.from(suggestionLog);
@@ -196,5 +206,14 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
                 Boolean.FALSE.equals(s.getIsAccepted())).count();
 
         return new SuggestionSummary(totalCount, acceptedCount, rejectedCount);
+    }
+
+    private ActionPayload parseActionPayload(String actionPayloadJson) {
+        try {
+            return jsonMapper.readValue(actionPayloadJson, ActionPayload.class);
+
+        } catch (Exception e) {
+            throw new IllegalArgumentException("액추에이터 명령 JSON 파싱 실패: " + actionPayloadJson, e);
+        }
     }
 }
