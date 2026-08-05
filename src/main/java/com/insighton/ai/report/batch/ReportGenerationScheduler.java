@@ -262,7 +262,8 @@ public class ReportGenerationScheduler {
 
         sb.append("\n## AI 제안\n");
         sb.append("- 총 ").append(suggestions.totalCount()).append("건, 수락 ").append(suggestions.acceptedCount())
-                .append("건, 거절 ").append(suggestions.rejectedCount()).append("건\n");
+                .append("건, 거절 ").append(suggestions.rejectedCount())
+                .append("건, 대기 ").append(suggestions.pendingCount()).append("건\n");
 
         sb.append("\n---\n다음 순서로 작성: 1) 요약(3줄 이내) 2) 실내 환경 진단 3) 에너지 사용 진단 ")
                 .append("4) 지난 기간 대비 해석 5) 개선 제안. 제공된 수치만 사용하고 추측하지 마세요.");

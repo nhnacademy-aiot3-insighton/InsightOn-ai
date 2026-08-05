@@ -41,7 +41,8 @@ public class HourlyTelemetryAggregationScheduler {
 
     /**
      * 정각 배치 진입점. 직전 1시간(예: 15시 정각 실행 시 14시~15시) 구간을 집계 윈도우로 잡고, sensor_data 기준 평균/최고/최저와 actuator_status 기준 가동 분을 각각
-     * 조회한 뒤 location별로 묶어 저장한다. ShedLock이 걸려있어도, 수동 재실행 등 예외 상황을 대비해 저장 전 중복 집계 여부를 한 번 더 확인한다.
+     * 조회한 뒤 location별로 묶어 저장한다. ShedLock이 걸려있어도, 수동 재실행 등 예외 상황을 대비해 저장 전 중복 집계 여부를 한 번 더 확인한다. location하나가 실패해도 나머지는
+     * 계속 처리
      */
     @Scheduled(cron = "0 0 * * * *")
     @SchedulerLock(name = "hourlyTelemetryAggregation", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
@@ -58,23 +59,29 @@ public class HourlyTelemetryAggregationScheduler {
         locationIds.addAll(avgByLocation.keySet());
         locationIds.addAll(maxByLocation.keySet());
         locationIds.addAll(minByLocation.keySet());
+        locationIds.addAll(actuatorByLocation.keySet());
 
         for (Long locationId : locationIds) {
-            if (hourlyTelemetryStatService.findByLocationAndLogHour(locationId, windowStart).isPresent()) {
-                log.info("시간별 통계 이미 집계됨, 스킵 - locationId:{}, logHour:{}", locationId, windowStart);
-                continue;
-            }
 
-            hourlyTelemetryStatService.create(new HourlyTelemetryStatCreateRequest(
-                    locationId,
-                    windowStart,
-                    toJson(avgByLocation.getOrDefault(locationId, Map.of())),
-                    toJson(maxByLocation.getOrDefault(locationId, Map.of())),
-                    toJson(minByLocation.getOrDefault(locationId, Map.of())),
-                    actuatorByLocation.containsKey(locationId) ? toJson(actuatorByLocation.get(locationId)) : null
-            ));
+            //location별 예외 격리
+            try {
+                if (hourlyTelemetryStatService.findByLocationAndLogHour(locationId, windowStart).isPresent()) {
+                    log.info("시간별 통계 이미 집계됨, 스킵 - locationId:{}, logHour:{}", locationId, windowStart);
+                    continue;
+                }
+
+                hourlyTelemetryStatService.create(new HourlyTelemetryStatCreateRequest(
+                        locationId,
+                        windowStart,
+                        toJson(avgByLocation.getOrDefault(locationId, Map.of())),
+                        toJson(maxByLocation.getOrDefault(locationId, Map.of())),
+                        toJson(minByLocation.getOrDefault(locationId, Map.of())),
+                        actuatorByLocation.containsKey(locationId) ? toJson(actuatorByLocation.get(locationId)) : null
+                ));
+            } catch (Exception e) {
+                log.error("시간별 통계 저장 실패 - locationId:{}, logHour: {}", locationId, windowStart, e);
+            }
         }
-        log.info("시간별 통계 집계 배치 완료 - logHour:{}, 대상 location 수:{}", windowStart, locationIds.size());
     }
 
     /**

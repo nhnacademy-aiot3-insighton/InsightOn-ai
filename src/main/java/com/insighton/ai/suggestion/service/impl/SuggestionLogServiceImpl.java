@@ -205,7 +205,10 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         long rejectedCount = suggestions.stream().filter(s ->
                 Boolean.FALSE.equals(s.getIsAccepted())).count();
 
-        return new SuggestionSummary(totalCount, acceptedCount, rejectedCount);
+        long pendingCount = suggestions.stream().filter(s ->
+                s.getIsAccepted() == null).count();
+
+        return new SuggestionSummary(totalCount, acceptedCount, rejectedCount, pendingCount);
     }
 
     private ActionPayload parseActionPayload(String actionPayloadJson) {
