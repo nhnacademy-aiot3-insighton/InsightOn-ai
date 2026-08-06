@@ -1,7 +1,5 @@
 package com.insighton.ai.telemetrystats.service.impl;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.insighton.ai.exception.InvalidRequestException;
 import com.insighton.ai.telemetrystats.domain.HourlyTelemetryStat;
 import com.insighton.ai.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
@@ -24,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 시간별 텔레메트리 통계 조회·생성 담당 서비스 구현체.
@@ -36,7 +36,7 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
 
     private final HourlyTelemetryStatRepository hourlyTelemetryStatRepository;
     private final Validator validator;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     /**
      * 위치 ID(필수), 기간(선택) 조건에 따른 시간별 통계 목록 조회.
@@ -224,7 +224,7 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
         }
 
         try {
-            return objectMapper.readValue(json, new TypeReference<Map<String, Double>>() {
+            return jsonMapper.readValue(json, new TypeReference<Map<String, Double>>() {
             });
         } catch (Exception e) {
             throw new IllegalStateException("메트릭 JSON 파싱 실패: " + json, e);

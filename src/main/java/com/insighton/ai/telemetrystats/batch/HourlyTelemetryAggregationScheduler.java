@@ -1,6 +1,5 @@
 package com.insighton.ai.telemetrystats.batch;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.influxdb.client.InfluxDBClient;
 import com.influxdb.query.FluxRecord;
 import com.influxdb.query.FluxTable;
@@ -21,6 +20,7 @@ import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * 매시 정각, 직전 1시간의 InfluxDB {@code sensor_data}/{@code actuator_status} 원시 데이터를 location_id 기준으로 집계해
@@ -36,7 +36,7 @@ public class HourlyTelemetryAggregationScheduler {
 
     private final InfluxDBClient influxDBClient;
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JsonMapper jsonMapper = new JsonMapper();
 
     @Value("${influxdb.bucket}")
     private String bucket;
@@ -174,7 +174,7 @@ public class HourlyTelemetryAggregationScheduler {
      */
     private String toJson(Map<String, Double> metrics) {
         try {
-            return objectMapper.writeValueAsString(metrics);
+            return jsonMapper.writeValueAsString(metrics);
         } catch (Exception e) {
             throw new IllegalStateException("메트릭 JSON 직렬화 실패", e);
         }
