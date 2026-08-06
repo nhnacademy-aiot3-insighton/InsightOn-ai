@@ -1,9 +1,13 @@
 package com.insighton.ai.config;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@Slf4j
 public class RabbitConfig {
 
     public static final String CORE_EVENTS_EXCHANGE = "insighton.core-events";
@@ -72,6 +77,23 @@ public class RabbitConfig {
         return BindingBuilder.bind(suggestionActionQueue)
                 .to(ruleEngineEventExchange)
                 .with(SUGGESTION_ACTION_ROUTING_KEY);
+    }
+
+    @Bean
+    public MessageRecoverer messageRecoverer() {
+        return (message, cause) -> {
+            String queue = message.getMessageProperties().getConsumerQueue();
+            String body = new String(message.getBody(), StandardCharsets.UTF_8);
+
+            switch (Objects.requireNonNull(queue)) {
+                case SUGGESTION_ACTION_QUEUE -> log.error("AI제안 이벤트 재시도 소진 - queue: {}, body: {}", queue, body, cause);
+
+                case GROUP_DELETED_QUEUE, LOCATION_DELETED_QUEUE ->
+                        log.error("Core 라이프사이클 이벤트 재시도 소진 - queue: {}, body: {}", queue, body, cause);
+
+                default -> log.error("RabbitMQ 재시도소진 - queue: {}, body: {}", queue, body, cause);
+            }
+        };
     }
 
     @Bean
