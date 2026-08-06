@@ -1,6 +1,6 @@
 package com.insighton.ai.config;
 
-import com.insighton.ai.groupauth.interceptor.GroupMembershipInterceptor;
+import com.insighton.ai.coreapi.interceptor.GroupMembershipInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;

@@ -1,19 +1,21 @@
 package com.insighton.ai.suggestion.service.impl;
 
+import com.insighton.ai.coreapi.service.GroupAuthorizationService;
 import com.insighton.ai.exception.InvalidRequestException;
-import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.notification.domain.NotificationType;
 import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.notification.service.DashboardNotificationService;
 import com.insighton.ai.suggestion.domain.SuggestionLog;
 import com.insighton.ai.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.suggestion.dto.SuggestionLogResponse;
+import com.insighton.ai.suggestion.dto.SuggestionSummary;
 import com.insighton.ai.suggestion.exception.SuggestionLogNotFoundException;
 import com.insighton.ai.suggestion.repository.SuggestionLogRepository;
 import com.insighton.ai.suggestion.service.SuggestionLogService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -180,5 +182,22 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         }
         suggestionLogRepository.deleteByLocationId(locationId);
         log.info("제안 로그 일괄 삭제 - locationId:{}", locationId);
+    }
+
+    @Override
+    public SuggestionSummary summarizePeriod(Long locationId, OffsetDateTime from, OffsetDateTime to) {
+        List<SuggestionLog> suggestions = suggestionLogRepository.searchByPeriod(locationId, from, to);
+
+        long totalCount = suggestions.size();
+        long acceptedCount = suggestions.stream().filter(s ->
+                Boolean.TRUE.equals(s.getIsAccepted())).count();
+
+        long rejectedCount = suggestions.stream().filter(s ->
+                Boolean.FALSE.equals(s.getIsAccepted())).count();
+
+        long pendingCount = suggestions.stream().filter(s ->
+                s.getIsAccepted() == null).count();
+
+        return new SuggestionSummary(totalCount, acceptedCount, rejectedCount, pendingCount);
     }
 }

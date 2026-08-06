@@ -1,8 +1,8 @@
 package com.insighton.ai.notification.service.impl;
 
+import com.insighton.ai.coreapi.domain.GroupRole;
+import com.insighton.ai.coreapi.service.GroupAuthorizationService;
 import com.insighton.ai.exception.InvalidRequestException;
-import com.insighton.ai.groupauth.domain.GroupRole;
-import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import com.insighton.ai.notification.domain.DashboardNotification;
 import com.insighton.ai.notification.dto.DashboardNotificationBroadcastEvent;
 import com.insighton.ai.notification.dto.DashboardNotificationCreateRequest;

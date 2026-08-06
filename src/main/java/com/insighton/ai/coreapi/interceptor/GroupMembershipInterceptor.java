@@ -1,7 +1,7 @@
-package com.insighton.ai.groupauth.interceptor;
+package com.insighton.ai.coreapi.interceptor;
 
+import com.insighton.ai.coreapi.service.GroupAuthorizationService;
 import com.insighton.ai.exception.InvalidRequestException;
-import com.insighton.ai.groupauth.service.GroupAuthorizationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
