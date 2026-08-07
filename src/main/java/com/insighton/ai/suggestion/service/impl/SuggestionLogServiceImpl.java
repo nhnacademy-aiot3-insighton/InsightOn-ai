@@ -1,7 +1,9 @@
 package com.insighton.ai.suggestion.service.impl;
 
 import com.insighton.ai.coreapi.client.CoreClient;
+import com.insighton.ai.coreapi.domain.ExecutedByType;
 import com.insighton.ai.coreapi.dto.ActionPayload;
+import com.insighton.ai.coreapi.dto.ActuatorCommandRequest;
 import com.insighton.ai.coreapi.service.GroupAuthorizationService;
 import com.insighton.ai.exception.InvalidRequestException;
 import com.insighton.ai.notification.domain.NotificationType;
@@ -24,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -34,6 +37,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Slf4j
 @Transactional(readOnly = true)
 public class SuggestionLogServiceImpl implements SuggestionLogService {
+
+    private static final ExecutedByType CALLER_SERVICE = ExecutedByType.AI_SYSTEM;
 
     private final SuggestionLogRepository suggestionLogRepository;
     private final Validator validator;
@@ -124,8 +129,8 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
     }
 
     /**
-     * AI 제안 수락 처리(is_accepted=true). actionPayload에 실제 액추에이터 명령이 담겨있으면 Core 제어 API를 호출해 즉시 실행하고, 창문 개방처럼 조언만 있는
-     * 제안(actuatorType 없음)이면 수락 처리만 하고 Core 호출은 생략한다.
+     * AI 제안 수락 처리(is_accepted=true). actionPayload에 담긴 액추에이터 명령들을 순서대로 Core 제어 API에 전달해 즉시 실행한다. 순수 조언(창문 개방 등)만 있던 제안은
+     * actionPayload가 빈 배열이라 실행할 게 없어 수락 처리만 된다.
      *
      * @param suggestionLogId 제안 로그 ID
      * @param userId          요청자 유저 ID
@@ -142,14 +147,24 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
 
         suggestionLog.changeAccepted(true);
 
-        ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
-        // TODO: Core 액추에이터 명령/값 API 확정되면 요청/응답 형식 재검토 — core-actuator-command-vocabulary-request.md 참고
-        if (actionPayload.actuatorType() != null) {
-            coreClient.executeActuatorCommand(actionPayload);
-        }
+        List<ActionPayload> actionPayloads = parseActionPayloads(suggestionLog.getActionPayload());
+        // TODO: Core 액추에이터 명령/값 API 확정되면 요청/응답 형식 재검토
+        actionPayloads.forEach(payload ->
+                coreClient.executeActuatorCommand(suggestionLog.getLocationId(),
+                        new ActuatorCommandRequest(payload.actuatorType(), payload.command(), payload.commandValue(),
+                                CALLER_SERVICE)));
 
-        log.info("AI 제안 수락 - suggestionLogId:{}", suggestionLogId);
+        log.info("AI 제안 수락 - suggestionLogId:{}, 액션 수:{}", suggestionLogId, actionPayloads.size());
         return SuggestionLogResponse.from(suggestionLog);
+    }
+
+    private List<ActionPayload> parseActionPayloads(String actionPayloadJson) {
+        try {
+            return jsonMapper.readValue(actionPayloadJson, new TypeReference<List<ActionPayload>>() {
+            });
+        } catch (Exception e) {
+            throw new IllegalArgumentException("액추에이터 명령 JSON 파싱 실패: " + actionPayloadJson, e);
+        }
     }
 
     /**
@@ -209,14 +224,5 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
                 s.getIsAccepted() == null).count();
 
         return new SuggestionSummary(totalCount, acceptedCount, rejectedCount, pendingCount);
-    }
-
-    private ActionPayload parseActionPayload(String actionPayloadJson) {
-        try {
-            return jsonMapper.readValue(actionPayloadJson, ActionPayload.class);
-
-        } catch (Exception e) {
-            throw new IllegalArgumentException("액추에이터 명령 JSON 파싱 실패: " + actionPayloadJson, e);
-        }
     }
 }

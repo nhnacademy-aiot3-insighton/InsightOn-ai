@@ -1,6 +1,6 @@
 package com.insighton.ai.coreapi.client;
 
-import com.insighton.ai.coreapi.dto.ActionPayload;
+import com.insighton.ai.coreapi.dto.ActuatorCommandRequest;
 import com.insighton.ai.coreapi.dto.ActuatorRunLogResponse;
 import com.insighton.ai.coreapi.dto.GroupMemberResponse;
 import com.insighton.ai.coreapi.dto.LocationResponse;
@@ -10,7 +10,7 @@ import java.util.List;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -35,12 +35,14 @@ public interface CoreClient {
 
 
     /**
-     * AI가 액츄에이터 조작 시 호출할 API ex) 에어컨 ON / OFF 등
+     * AI가 액추에이터 조작 시 호출할 API. locationId의 해당 actuatorType 액추에이터 전체에 명령을 적용한다(개별 actuatorId 지정 없음).
      *
-     * @param actionPayload 액츄에이터 조작용 DTO
+     * @param locationId 대상 위치 ID
+     * @param request    액추에이터 조작용 DTO(actuatorType/command/commandValue/callerService)
      */
-    @PostMapping("/actuators/commands")
-    void executeActuatorCommand(@RequestBody ActionPayload actionPayload);
+    @PutMapping("/locations/{location-id}/actuators/state")
+    void executeActuatorCommand(@PathVariable("location-id") Long locationId,
+                                @RequestBody ActuatorCommandRequest request);
 
 
     /**

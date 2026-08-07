@@ -1,11 +1,14 @@
 package com.insighton.ai.suggestion.batch;
 
 import com.insighton.ai.coreapi.client.CoreClient;
-import com.insighton.ai.coreapi.domain.ActuatorType;
 import com.insighton.ai.coreapi.domain.AutoControlMode;
+import com.insighton.ai.coreapi.domain.CommandValueRule;
+import com.insighton.ai.coreapi.domain.ExecutedByType;
 import com.insighton.ai.coreapi.dto.ActionPayload;
+import com.insighton.ai.coreapi.dto.ActuatorCommandRequest;
 import com.insighton.ai.coreapi.dto.LocationResponse;
 import com.insighton.ai.coreapi.dto.WeatherResponse;
+import com.insighton.ai.suggestion.dto.ActuatorAction;
 import com.insighton.ai.suggestion.dto.AiSuggestionActionEvent;
 import com.insighton.ai.suggestion.dto.SuggestionDraft;
 import com.insighton.ai.suggestion.dto.SuggestionLogCreateRequest;
@@ -17,6 +20,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -41,12 +45,24 @@ public class SuggestionGenerationScheduler {
             "humidity", new double[]{40.0, 60.0}
     );
 
-    // TODO: Core 확정 대기 중인 임시 값
-    private static final Map<String, List<String>> ACTUATOR_COMMANDS = Map.of(
-            "AIRCON", List.of("POWER_STATUS", "MODE", "SET_TEMPERATURE"),
-            "AIR_PURIFIER", List.of("POWER_STATUS"),
-            "VENTILATION_FAN", List.of("POWER_STATUS")
+    // Core 확정 규칙(2026-08-07) — actuatorType 이름 -> (command 이름 -> 허용값 규칙)
+    private static final Map<String, Map<String, CommandValueRule>> ACTUATOR_COMMAND_RULES = Map.of(
+            "AIRCON", Map.of(
+                    "POWER_STATUS", new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
+                    "OPERATION_MODE", new CommandValueRule.AllowedValues(Set.of("COOL", "DRY", "FAN", "AUTO")),
+                    "SET_TEMPERATURE", new CommandValueRule.NumericRange(18, 30)
+            ),
+            "AIR_PURIFIER", Map.of(
+                    "POWER_STATUS", new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
+                    "OPERATION_MODE", new CommandValueRule.AllowedValues(Set.of("AUTO", "SLEEP", "TURBO"))
+            ),
+            "VENTILATION_FAN", Map.of(
+                    "POWER_STATUS", new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
+                    "OPERATION_MODE", new CommandValueRule.AllowedValues(Set.of("LOW", "MID", "HIGH"))
+            )
     );
+
+    private static final ExecutedByType CALLER_SERVICE = ExecutedByType.AI_SYSTEM;
 
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final CoreClient coreClient;
@@ -140,12 +156,26 @@ public class SuggestionGenerationScheduler {
             return;
         }
 
-        ActuatorType actuatorType = draft.actuatorType();
-        ActionPayload actionPayload = new ActionPayload(locationId, actuatorType != null ? actuatorType.name() : null,
-                draft.command(), draft.commandValue());
-        String actionPayloadJson = toJson(actionPayload);
+        List<ActuatorAction> actions = draft.actions() != null ? draft.actions() : List.of();
 
-        boolean autoExecute = actuatorType != null && location.autoControlMode() == AutoControlMode.AI_DIRECT;
+        List<ActionPayload> validActionPayloads = actions.stream()
+                .filter(this::isValidAction)
+                .map(action -> new ActionPayload(
+                        locationId,
+                        action.actuatorType().name(),
+                        action.command(),
+                        action.commandValue()))
+                .toList();
+
+        actions.stream()
+                .filter(action -> !isValidAction(action))
+                .forEach(action -> log.warn(
+                        "LLM이 허용되지 않은 명령을 반환해 액추에이터 조작에서 제외 - locationId:{}, actuatorType:{}, command:{}",
+                        locationId, action.actuatorType(), action.command()));
+
+        String actionPayloadJson = toJson(validActionPayloads);
+
+        boolean autoExecute = !validActionPayloads.isEmpty() && location.autoControlMode() == AutoControlMode.AI_DIRECT;
 
         suggestionLogService.create(new SuggestionLogCreateRequest(
                 location.groupId(), locationId, draft.title(), draft.suggestionText(),
@@ -153,10 +183,28 @@ public class SuggestionGenerationScheduler {
         ));
 
         if (autoExecute) {
-            coreClient.executeActuatorCommand(actionPayload);
+            validActionPayloads.forEach(payload ->
+                    coreClient.executeActuatorCommand(locationId,
+                            new ActuatorCommandRequest(payload.actuatorType(), payload.command(), payload.commandValue(),
+                                    CALLER_SERVICE)));
         }
 
         log.info("{} 제안 생성 - locationId:{}, autoExecute:{}", sourceLabel, locationId, autoExecute);
+    }
+
+
+    private boolean isValidAction(ActuatorAction action) {
+        if (action.actuatorType() == null || action.command() == null) {
+            return false;
+        }
+
+        Map<String, CommandValueRule> commandRules = ACTUATOR_COMMAND_RULES.get(action.actuatorType().name());
+        if (commandRules == null) {
+            return false;
+        }
+
+        CommandValueRule rule = commandRules.get(action.command());
+        return rule != null && rule.isValid(action.commandValue());
     }
 
     /**
@@ -253,24 +301,43 @@ public class SuggestionGenerationScheduler {
             sb.append("- 습도: ").append(weather.forecastHumidity()).append("%\n");
         }
 
-        sb.append("\n## 조작 가능한 명령 (이 목록 안에서만 선택)\n");
-        ACTUATOR_COMMANDS.forEach((type, commands) ->
-                sb.append("- ").append(type).append(": ").append(String.join(", ", commands)).append("\n"));
+        sb.append("\n## 조작 가능한 명령 (이 목록의 명령·값 조합 안에서만 선택)\n");
+        current.actuatorOnMinutes().keySet().forEach(type -> {
+            Map<String, CommandValueRule> commandRules = ACTUATOR_COMMAND_RULES.get(type);
+            if (commandRules != null) {
+                commandRules.forEach((command, rule) ->
+                        sb.append("- ").append(type).append(" ").append(command).append(": ")
+                                .append(describeRule(rule)).append("\n"));
+            }
+        });
 
         sb.append("\n---\n");
         sb.append("쾌적 기준값을 벗어났거나 벗어날 조짐이 보이면 actionNeeded=true로 하세요. ")
-                .append("actuatorType/command/commandValue는 반드시 위 목록에 있는 조합만 쓰세요.\n");
+                .append("actions에는 실제로 조작이 필요한 액추에이터 명령만 담으세요 — 각 항목의 actuatorType/command/commandValue는 ")
+                .append("반드시 위 목록에 있는 조합만 쓰고, 여러 액추에이터를 동시에 조작해야 하면 actions에 여러 개를 담으세요.\n");
+        sb.append("OPERATION_MODE나 SET_TEMPERATURE를 제안할 때는 액추에이터가 꺼져있을 수도 있으니, ")
+                .append("같은 actions 안에 POWER_STATUS(ON) 액션도 함께 담아 전원부터 켜지도록 하세요.\n");
         sb.append("실외 기온이 쾌적하고 미세먼지가 좋음/보통이며, 현재는 물론 1시간 후 예보에도 강수가 없다면, ")
                 .append("액추에이터를 끄고 자연환기(창문 개방)를 제안하는 것도 고려하세요. ")
                 .append("1시간 후 강수가 예보돼 있다면 창문 개방은 제안하지 마세요. ")
                 .append("창문 개방처럼 액추에이터가 아닌 조언은 suggestionText에만 포함하고, ")
-                .append("actionPayload에는 실제로 조작 가능한 액추에이터 명령만 담으세요.\n");
-        sb.append("특별히 조치할 게 없으면 actionNeeded=false로 하고 나머지 필드는 비우세요.");
-
+                .append("실제로 조작 가능한 액추에이터가 없으면 actions는 빈 배열로 두세요.\n");
+        sb.append("특별히 조치할 게 없으면 actionNeeded=false로 하고 title/suggestionText는 비우고 actions도 빈 배열로 두세요.");
         return sb.toString();
     }
 
-    private String toJson(ActionPayload actionPayload) {
+    /**
+     * CommandValueRule을 프롬프트에 보여줄 사람이 읽을 수 있는 문구로 변환한다.
+     */
+    private String describeRule(CommandValueRule rule) {
+        return switch (rule) {
+            case CommandValueRule.AllowedValues allowedValues -> String.join(", ", allowedValues.values());
+            case CommandValueRule.NumericRange numericRange ->
+                    numericRange.min() + "~" + numericRange.max() + " 사이 숫자";
+        };
+    }
+
+    private String toJson(List<ActionPayload> actionPayload) {
         try {
             return jsonMapper.writeValueAsString(actionPayload);
         } catch (Exception e) {
