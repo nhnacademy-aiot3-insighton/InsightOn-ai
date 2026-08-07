@@ -1,9 +1,13 @@
 package com.insighton.ai.config;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,6 +15,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@Slf4j
 public class RabbitConfig {
 
     public static final String CORE_EVENTS_EXCHANGE = "insighton.core-events";
@@ -24,6 +29,8 @@ public class RabbitConfig {
     public static final String RULE_ENGINE_EVENTS_EXCHANGE = "insighton.rule-engine-events";
     public static final String SUGGESTION_ACTION_QUEUE = "ai-service.suggestion-action.queue";
     public static final String SUGGESTION_ACTION_ROUTING_KEY = "ai.suggestion.action";
+    public static final String ALERT_ACTION_QUEUE = "ai-service.alert-action.queue";
+    public static final String ALERT_ACTION_ROUTING_KEY = "ai.alert.action";
 
     @Bean
     public TopicExchange coreEventsExchange() {
@@ -75,7 +82,36 @@ public class RabbitConfig {
     }
 
     @Bean
+    public Queue alertActionQueue() {
+        return new Queue(ALERT_ACTION_QUEUE, true);
+    }
+
+    @Bean
+    public Binding alertActionBinding(Queue alertActionQueue,
+                                      @Qualifier("ruleEngineEventExchange") TopicExchange ruleEngineEventExchange) {
+        return BindingBuilder.bind(alertActionQueue)
+                .to(ruleEngineEventExchange)
+                .with(ALERT_ACTION_ROUTING_KEY);
+    }
+
+    @Bean
     public MessageConverter jsonMessageConverter() {
         return new JacksonJsonMessageConverter();
+    }
+
+    @Bean
+    public MessageRecoverer messageRecoverer() {
+        return (message, cause) -> {
+            String queue = message.getMessageProperties().getConsumerQueue();
+            String body = new String(message.getBody(), StandardCharsets.UTF_8);
+            switch (Objects.requireNonNull(queue)) {
+                case SUGGESTION_ACTION_QUEUE -> log.error("AI제안 이벤트 재시도 소진 - queue: {}, body: {}", queue, body, cause);
+                case ALERT_ACTION_QUEUE ->
+                        log.error("Rule Engine 알람 이벤트 재시도 소진 - queue: {}, body: {}", queue, body, cause);
+                case GROUP_DELETED_QUEUE, LOCATION_DELETED_QUEUE ->
+                        log.error("Core 라이프사이클 이벤트 재시도 소진 - queue: {}, body: {}", queue, body, cause);
+                default -> log.error("RabbitMQ 재시도소진 - queue: {}, body: {}", queue, body, cause);
+            }
+        };
     }
 }
