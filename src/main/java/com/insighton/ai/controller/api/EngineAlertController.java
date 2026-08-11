@@ -1,0 +1,46 @@
+package com.insighton.ai.controller.api;
+
+import com.insighton.ai.controller.swagger.EngineAlertApi;
+import com.insighton.ai.domain.enginealert.dto.EngineAlertResponse;
+import com.insighton.ai.domain.enginealert.entity.Severity;
+import com.insighton.ai.domain.enginealert.service.EngineAlertService;
+import java.time.OffsetDateTime;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/v1/engine-alerts")
+@RequiredArgsConstructor
+public class EngineAlertController implements EngineAlertApi {
+
+    private final EngineAlertService engineAlertService;
+
+    @Override
+    @GetMapping
+    public ResponseEntity<List<EngineAlertResponse>> getEngineAlerts(
+            @RequestParam Long groupId,
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) Severity severity,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to
+    ) {
+        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId, severity, from, to));
+    }
+
+    @Override
+    @GetMapping("/{engineAlertId}")
+    public ResponseEntity<EngineAlertResponse> getEngineAlert(
+            @PathVariable Long engineAlertId,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        return ResponseEntity.ok(engineAlertService.getEngineAlert(engineAlertId, userId));
+    }
+}
