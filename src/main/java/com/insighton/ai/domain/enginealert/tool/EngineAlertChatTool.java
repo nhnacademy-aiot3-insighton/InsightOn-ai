@@ -26,9 +26,7 @@ public class EngineAlertChatTool {
     ) {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
-        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(1);
-        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
-        return engineAlertService.getEngineAlerts(groupId, locationId, severity, resolvedFrom, resolvedTo);
+        return engineAlertService.getEngineAlerts(groupId, locationId, severity, from, to);
     }
 
     @Tool(description = "엔진알람 ID로 엔진알람 상세 본문을 조회한다.")
