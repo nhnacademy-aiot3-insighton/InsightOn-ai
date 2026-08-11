@@ -5,6 +5,7 @@ import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.domain.telemetrystats.service.HourlyTelemetryStatService;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -64,8 +65,9 @@ public class TelemetryStatChatTool {
             return exactMatch.map(LocationResponse::locationId);
         }
 
+        String normalizedQuery = locationName.toLowerCase(Locale.ROOT);
         return locations.stream()
-                .filter(location -> location.locationName().contains(locationName))
+                .filter(location -> location.locationName().toLowerCase(Locale.ROOT).contains(normalizedQuery))
                 .map(LocationResponse::locationId)
                 .findFirst();
     }

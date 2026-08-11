@@ -34,6 +34,12 @@ public class HourlyTelemetryAggregationScheduler {
 
     private static final int LOOKBACK_HOURS = 3;
 
+    /**
+     * sensor_data measurement 안에 숫자가 아닌 값(예: 자석 센서의 OPEN/CLOSED 상태)을 가진 필드가 섞여있으면 mean()/max()/min() 집계 자체가 400 에러로 실패
+     * — 확인된 비숫자 필드는 여기서 제외.
+     */
+    private static final String NON_NUMERIC_FIELD_FILTER = "r._field != \"magnet_status\"";
+
     private final InfluxDBClient influxDBClient;
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final JsonMapper jsonMapper = new JsonMapper();
@@ -108,9 +114,10 @@ public class HourlyTelemetryAggregationScheduler {
                 from(bucket: "%s")
                     |> range(start: %s, stop: %s)
                     |> filter(fn: (r) => r._measurement == "sensor_data")
+                    |> filter(fn: (r) => %s)
                     |> group(columns: ["location_id", "_field"])
                     |> %s()
-                """.formatted(bucket, toRfc3339(start), toRfc3339(end), aggFn);
+                """.formatted(bucket, toRfc3339(start), toRfc3339(end), NON_NUMERIC_FIELD_FILTER, aggFn);
 
         Map<Long, Map<String, Double>> result = new HashMap<>();
 

@@ -32,10 +32,8 @@ public class ReportChatTool {
             ToolContext toolContext) {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
-        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(3);
-        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
 
-        return reportService.findReports(groupId, locationId, reportType, resolvedFrom, resolvedTo);
+        return reportService.findReports(groupId, locationId, reportType, from, to);
     }
 
     @Tool(description = "리포트 ID로 리포트 상세 본문을 조회한다. 날짜로 리포트를 찾을 땐 먼저 getReports로 목록을 받아 "

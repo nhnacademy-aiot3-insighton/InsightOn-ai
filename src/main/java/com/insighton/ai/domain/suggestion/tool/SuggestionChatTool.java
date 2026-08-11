@@ -26,10 +26,7 @@ public class SuggestionChatTool {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
 
-        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(1);
-        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
-
-        return suggestionLogService.findSuggestionLogs(groupId, locationId, resolvedFrom, resolvedTo);
+        return suggestionLogService.findSuggestionLogs(groupId, locationId, from, to);
     }
 
     @Tool(description = "제안로그 ID로 제안 상세 본문(제안 문구, 수락 여부)을 조회한다.")

@@ -57,7 +57,11 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
             throw new InvalidRequestException("groupId must not be null");
         }
 
-        List<SuggestionLog> suggestions = suggestionLogRepository.search(groupId, locationId, from, to);
+        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(1);
+        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
+
+        List<SuggestionLog> suggestions = suggestionLogRepository.search(groupId, locationId, resolvedFrom,
+                resolvedTo);
         log.info("SuggestionLog 리스트 조회 - groupId: {}, locationId:{}, log size:{}", groupId, locationId,
                 suggestions.size());
 

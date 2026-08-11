@@ -39,7 +39,7 @@ public class ReportServiceImpl implements ReportService {
     private final DashboardNotificationService dashboardNotificationService;
 
     /**
-     * 그룹 ID(필수), 위치 ID·리포트 종류(선택) 조건에 따른 리포트 목록 조회.
+     * 그룹 ID(필수), 위치 ID·리포트 종류(선택) 조건에 따른 리포트 목록 조회. from/to 미지정 시 최근 3개월로 기본 조회한다.
      *
      * @param groupId    그룹 ID(필수)
      * @param locationId 위치 ID(선택)
@@ -49,8 +49,10 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public List<ReportListResponse> findReports(Long groupId, Long locationId, ReportType reportType,
                                                 OffsetDateTime from, OffsetDateTime to) {
+        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(3);
+        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
 
-        return reportRepository.search(groupId, locationId, reportType, from, to).stream()
+        return reportRepository.search(groupId, locationId, reportType, resolvedFrom, resolvedTo).stream()
                 .map(ReportListResponse::from)
                 .toList();
     }

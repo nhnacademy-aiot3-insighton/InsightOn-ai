@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.Disposable;
 
 @RestController
 @RequestMapping("/api/v1/chat")
@@ -29,7 +30,7 @@ public class ChatController implements ChatApi {
 
         SseEmitter emitter = new SseEmitter(0L);
 
-        chatbotService.streamChat(groupId, userId, locationId, request.message())
+        Disposable subscription = chatbotService.streamChat(groupId, userId, locationId, request.message())
                 .subscribe(
                         token -> {
                             try {
@@ -41,6 +42,10 @@ public class ChatController implements ChatApi {
                         emitter::completeWithError,
                         emitter::complete
                 );
+
+        emitter.onCompletion(subscription::dispose);
+        emitter.onTimeout(subscription::dispose);
+        emitter.onError(throwable -> subscription.dispose());
 
         return emitter;
     }
