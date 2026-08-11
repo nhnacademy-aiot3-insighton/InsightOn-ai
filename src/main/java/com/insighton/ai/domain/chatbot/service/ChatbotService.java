@@ -3,18 +3,28 @@ package com.insighton.ai.domain.chatbot.service;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 @Service
 @RequiredArgsConstructor
 public class ChatbotService {
+
+    private static final String LOCK_KEY_PREFIX = "chat-lock:";
+    private static final Duration LOCK_TTL = Duration.ofSeconds(60);
+    private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(200);
+    private static final long LOCK_MAX_RETRIES = 50;
 
     private static final String SYSTEM_PROMPT_TEMPLATE = """
             당신은 InsightOn IoT 관제 플랫폼의 챗봇입니다. 오늘은 %s입니다.
@@ -34,6 +44,7 @@ public class ChatbotService {
 
     private final ChatClient chatbotClient;
     private final CoreClient coreClient;
+    private final StringRedisTemplate redisTemplate;
 
     public Flux<String> streamChat(Long groupId, Long userId, Long locationId, String message) {
 
@@ -53,10 +64,9 @@ public class ChatbotService {
         }
 
         String conversationId = "chat:" + groupId + ":" + userId + (locationId != null ? ":" + locationId : "");
-
         String systemPrompt = SYSTEM_PROMPT_TEMPLATE.formatted(OffsetDateTime.now());
 
-        return chatbotClient.prompt()
+        Flux<String> chatFlux = chatbotClient.prompt()
                 .system(systemPrompt)
                 .user(message)
                 .toolContext(context)
@@ -64,6 +74,30 @@ public class ChatbotService {
                 .stream()
                 .content();
 
+        // 동일 conversationId에 대한 ChatMemory read-modify-write(조회 후 전체 교체)가
+        // 병렬 요청 간에 겹치면 한쪽 turn이 유실될 수 있어, 대화 단위로 직렬화.
+        String lockKey = LOCK_KEY_PREFIX + conversationId;
+        String lockValue = UUID.randomUUID().toString();
 
+        return acquireLock(lockKey, lockValue)
+                .thenMany(chatFlux)
+                .doFinally(signalType -> releaseLock(lockKey, lockValue));
+    }
+
+    private Mono<Void> acquireLock(String lockKey, String lockValue) {
+        return Mono.fromCallable(() -> Boolean.TRUE.equals(
+                        redisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, LOCK_TTL)))
+                .flatMap(acquired -> acquired ? Mono.<Void>empty() : Mono.error(new ConversationLockedException()))
+                .retryWhen(Retry.fixedDelay(LOCK_MAX_RETRIES, LOCK_RETRY_DELAY)
+                        .filter(ConversationLockedException.class::isInstance));
+    }
+
+    private void releaseLock(String lockKey, String lockValue) {
+        if (lockValue.equals(redisTemplate.opsForValue().get(lockKey))) {
+            redisTemplate.delete(lockKey);
+        }
+    }
+
+    private static final class ConversationLockedException extends RuntimeException {
     }
 }

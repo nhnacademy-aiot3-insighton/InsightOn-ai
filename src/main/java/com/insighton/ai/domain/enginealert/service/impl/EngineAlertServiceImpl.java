@@ -43,7 +43,11 @@ public class EngineAlertServiceImpl implements EngineAlertService {
             throw new InvalidRequestException("groupId는 필수값입니다.");
         }
 
-        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity, from, to);
+        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(1);
+        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
+
+        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity, resolvedFrom,
+                resolvedTo);
         log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, size:{}", groupId, locationId, alerts.size());
 
         return alerts.stream()
