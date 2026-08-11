@@ -1,16 +1,16 @@
 package com.insighton.ai.domain.suggestion.service.impl;
 
 import com.insighton.ai.adapter.client.CoreClient;
-import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
+import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.common.exception.InvalidRequestException;
-import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
+import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.service.DashboardNotificationService;
-import com.insighton.ai.domain.suggestion.entity.SuggestionLog;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
+import com.insighton.ai.domain.suggestion.entity.SuggestionLog;
 import com.insighton.ai.domain.suggestion.exception.SuggestionLogNotFoundException;
 import com.insighton.ai.domain.suggestion.repository.SuggestionLogRepository;
 import com.insighton.ai.domain.suggestion.service.SuggestionLogService;
@@ -51,12 +51,13 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
      * @throws InvalidRequestException groupId가 null인 경우
      */
     @Override
-    public List<SuggestionLogResponse> findSuggestionLogs(Long groupId, Long locationId) {
+    public List<SuggestionLogResponse> findSuggestionLogs(Long groupId, Long locationId, OffsetDateTime from,
+                                                          OffsetDateTime to) {
         if (groupId == null) {
             throw new InvalidRequestException("groupId must not be null");
         }
 
-        List<SuggestionLog> suggestions = suggestionLogRepository.search(groupId, locationId);
+        List<SuggestionLog> suggestions = suggestionLogRepository.search(groupId, locationId, from, to);
         log.info("SuggestionLog 리스트 조회 - groupId: {}, locationId:{}, log size:{}", groupId, locationId,
                 suggestions.size());
 

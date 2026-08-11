@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 
@@ -20,7 +21,11 @@ public interface SuggestionLogApi {
             Long groupId,
             @Parameter(description = "위치 ID", example = "42",
                     schema = @Schema(type = "integer", format = "int64"))
-            Long locationId
+            Long locationId,
+            @Parameter(description = "조회 시작 시각(ISO-8601, 미지정 시 3개월 전)", example = "2026-01-01T00:00:00+09:00")
+            OffsetDateTime from,
+            @Parameter(description = "조회 종료 시각(ISO-8601, 미지정 시 현재)", example = "2026-06-30T23:59:59+09:00")
+            OffsetDateTime to
     );
 
     @Operation(summary = "제안 상세 조회", description = "제안 로그 ID로 상세 내용을 조회합니다.")

@@ -14,15 +14,19 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "insighton-core", path = "/internal")
+@FeignClient(name = "insighton-core", path = "/internal/v1")
 public interface CoreClient {
 
     @GetMapping("/groups/{group-id}/members")
     GroupMemberResponse getGroupMemberByUserId(@PathVariable("group-id") Long groupId,
                                                @RequestParam("userId") Long userId);
 
+    @GetMapping("/groups/{group-id}/locations")
+    List<LocationResponse> getLocationsByGroup(@PathVariable("group-id") Long groupId);
+
     @GetMapping("/locations/{location-id}")
     LocationResponse getLocation(@PathVariable("location-id") Long locationId);
+
 
     /**
      * 리포트 생성 배치가 기간 내 설정 온도 변경 이력/조작 주체 비율을 계산하기 위해 사용하는 원본 조작 로그 조회. Core actuator_run_logs를 location_id 기준으로 필터링해 그대로

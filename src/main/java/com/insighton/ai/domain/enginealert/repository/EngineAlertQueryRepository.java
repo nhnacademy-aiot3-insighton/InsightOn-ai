@@ -6,7 +6,7 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 public interface EngineAlertQueryRepository {
-    List<EngineAlert> search(Long groupId, Long locationId, Severity severity);
+    List<EngineAlert> search(Long groupId, Long locationId, Severity severity, OffsetDateTime from, OffsetDateTime to);
 
     List<EngineAlert> searchByPeriod(Long locationId, OffsetDateTime from, OffsetDateTime to);
 }

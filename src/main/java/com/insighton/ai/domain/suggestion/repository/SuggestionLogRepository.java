@@ -14,9 +14,12 @@ public interface SuggestionLogRepository extends JpaRepository<SuggestionLog, Lo
             select s from SuggestionLog s
             where s.groupId = :groupId
             and (:locationId is null or s.locationId = :locationId)
+            and (:from is null or s.createdAt >= :from)
+            and (:to is null or s.createdAt <= :to)
             order by s.createdAt desc
             """)
-    List<SuggestionLog> search(@Param("groupId") Long groupId, @Param("locationId") Long locationId);
+    List<SuggestionLog> search(@Param("groupId") Long groupId, @Param("locationId") Long locationId,
+                               @Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
 
     @Modifying
     @Query("delete from SuggestionLog s where s.groupId = :groupId")

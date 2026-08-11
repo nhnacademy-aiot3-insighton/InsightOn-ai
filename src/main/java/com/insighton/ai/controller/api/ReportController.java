@@ -5,8 +5,10 @@ import com.insighton.ai.domain.report.dto.ReportDetailResponse;
 import com.insighton.ai.domain.report.dto.ReportListResponse;
 import com.insighton.ai.domain.report.entity.ReportType;
 import com.insighton.ai.domain.report.service.ReportService;
+import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,9 +29,11 @@ public class ReportController implements ReportApi {
     public ResponseEntity<List<ReportListResponse>> getReports(
             @RequestParam Long groupId,
             @RequestParam(required = false) Long locationId,
-            @RequestParam(required = false) ReportType reportType
+            @RequestParam(required = false) ReportType reportType,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to
     ) {
-        return ResponseEntity.ok(reportService.findReports(groupId, locationId, reportType));
+        return ResponseEntity.ok(reportService.findReports(groupId, locationId, reportType, from, to));
     }
 
     @Override

@@ -2,20 +2,21 @@ package com.insighton.ai.domain.report.service.impl;
 
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.common.exception.InvalidRequestException;
-import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
+import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.service.DashboardNotificationService;
-import com.insighton.ai.domain.report.entity.Report;
-import com.insighton.ai.domain.report.entity.ReportType;
 import com.insighton.ai.domain.report.dto.ReportCreateRequest;
 import com.insighton.ai.domain.report.dto.ReportDetailResponse;
 import com.insighton.ai.domain.report.dto.ReportListResponse;
+import com.insighton.ai.domain.report.entity.Report;
+import com.insighton.ai.domain.report.entity.ReportType;
 import com.insighton.ai.domain.report.exception.ReportNotFoundException;
 import com.insighton.ai.domain.report.repository.ReportRepository;
 import com.insighton.ai.domain.report.service.ReportService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -46,9 +47,10 @@ public class ReportServiceImpl implements ReportService {
      * @return 리포트 목록 응답
      */
     @Override
-    public List<ReportListResponse> findReports(Long groupId, Long locationId, ReportType reportType) {
+    public List<ReportListResponse> findReports(Long groupId, Long locationId, ReportType reportType,
+                                                OffsetDateTime from, OffsetDateTime to) {
 
-        return reportRepository.search(groupId, locationId, reportType).stream()
+        return reportRepository.search(groupId, locationId, reportType, from, to).stream()
                 .map(ReportListResponse::from)
                 .toList();
     }
