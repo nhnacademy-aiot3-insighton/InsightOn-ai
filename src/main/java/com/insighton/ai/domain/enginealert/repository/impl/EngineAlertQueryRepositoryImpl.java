@@ -19,13 +19,16 @@ public class EngineAlertQueryRepositoryImpl implements EngineAlertQueryRepositor
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public List<EngineAlert> search(Long groupId, Long locationId, Severity severity) {
+    public List<EngineAlert> search(Long groupId, Long locationId, Severity severity, OffsetDateTime from,
+                                    OffsetDateTime to) {
         return queryFactory
                 .selectFrom(engineAlert)
                 .where(
                         engineAlert.groupId.eq(groupId),
                         locationIdEq(locationId),
-                        severityEq(severity)
+                        severityEq(severity),
+                        createdAtGoe(from),
+                        createdAtLoe(to)
                 )
                 .orderBy(engineAlert.createdAt.desc())
                 .fetch();
@@ -38,7 +41,15 @@ public class EngineAlertQueryRepositoryImpl implements EngineAlertQueryRepositor
     private BooleanExpression severityEq(Severity severity) {
         return severity != null ? engineAlert.severity.eq(severity) : null;
     }
-    
+
+    private BooleanExpression createdAtGoe(OffsetDateTime from) {
+        return from != null ? engineAlert.createdAt.goe(from) : null;
+    }
+
+    private BooleanExpression createdAtLoe(OffsetDateTime to) {
+        return to != null ? engineAlert.createdAt.loe(to) : null;
+    }
+
     @Override
     public List<EngineAlert> searchByPeriod(Long locationId, OffsetDateTime from, OffsetDateTime to) {
         return queryFactory

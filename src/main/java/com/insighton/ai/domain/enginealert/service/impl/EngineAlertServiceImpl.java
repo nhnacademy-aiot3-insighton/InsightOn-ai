@@ -1,17 +1,17 @@
 package com.insighton.ai.domain.enginealert.service.impl;
 
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
-import com.insighton.ai.domain.enginealert.entity.EngineAlert;
-import com.insighton.ai.domain.enginealert.entity.Severity;
+import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
+import com.insighton.ai.domain.enginealert.entity.EngineAlert;
+import com.insighton.ai.domain.enginealert.entity.Severity;
 import com.insighton.ai.domain.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.domain.enginealert.repository.EngineAlertRepository;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
-import com.insighton.ai.common.exception.InvalidRequestException;
-import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
+import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.service.DashboardNotificationService;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -36,13 +36,14 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     private final DashboardNotificationService dashboardNotificationService;
 
     @Override
-    public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity) {
+    public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity,
+                                                     OffsetDateTime from, OffsetDateTime to) {
 
         if (groupId == null) {
             throw new InvalidRequestException("groupId는 필수값입니다.");
         }
 
-        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity);
+        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity, from, to);
         log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, size:{}", groupId, locationId, alerts.size());
 
         return alerts.stream()

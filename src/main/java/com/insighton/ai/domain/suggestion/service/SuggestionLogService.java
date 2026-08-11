@@ -7,7 +7,8 @@ import java.time.OffsetDateTime;
 import java.util.List;
 
 public interface SuggestionLogService {
-    List<SuggestionLogResponse> findSuggestionLogs(Long groupId, Long locationId);
+    List<SuggestionLogResponse> findSuggestionLogs(Long groupId, Long locationId, OffsetDateTime from,
+                                                   OffsetDateTime to);
 
     SuggestionLogResponse findSuggestionLog(Long suggestionLogId, Long userId);
 

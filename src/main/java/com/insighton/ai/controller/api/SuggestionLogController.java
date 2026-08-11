@@ -3,8 +3,10 @@ package com.insighton.ai.controller.api;
 import com.insighton.ai.controller.swagger.SuggestionLogApi;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.service.SuggestionLogService;
+import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,9 +27,11 @@ public class SuggestionLogController implements SuggestionLogApi {
     @GetMapping
     public ResponseEntity<List<SuggestionLogResponse>> getSuggestionLogs(
             @RequestParam Long groupId,
-            @RequestParam(required = false) Long locationId
+            @RequestParam(required = false) Long locationId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to
     ) {
-        return ResponseEntity.ok(suggestionLogService.findSuggestionLogs(groupId, locationId));
+        return ResponseEntity.ok(suggestionLogService.findSuggestionLogs(groupId, locationId, from, to));
     }
 
     @Override
