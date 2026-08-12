@@ -14,6 +14,9 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class EngineAlertChatTool {
+
+    private static final int MAX_RESULTS = 50;
+
     private final EngineAlertService engineAlertService;
 
     @Tool(description = "현재 그룹의 엔진 알람 목록을 조회한다. 대화에 위치가 지정돼 있으면 그 위치로 제한된다. "
@@ -26,7 +29,7 @@ public class EngineAlertChatTool {
     ) {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
-        return engineAlertService.getEngineAlerts(groupId, locationId, severity, from, to);
+        return engineAlertService.getEngineAlerts(groupId, locationId, severity, from, to, 0, MAX_RESULTS);
     }
 
     @Tool(description = "엔진알람 ID로 엔진알람 상세 본문을 조회한다.")

@@ -10,7 +10,9 @@ import java.util.List;
 public interface EngineAlertService {
 
     List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity, OffsetDateTime from,
-                                              OffsetDateTime to);
+                                              OffsetDateTime to, int offset, int limit);
+
+    long countEngineAlerts(Long groupId, Long locationId, Severity severity, OffsetDateTime from, OffsetDateTime to);
 
     EngineAlertResponse getEngineAlert(Long engineAlertId, Long userId);
 

@@ -10,7 +10,9 @@ import java.util.List;
 
 public interface ReportService {
     List<ReportListResponse> findReports(Long groupId, Long locationId, ReportType reportType, OffsetDateTime from,
-                                         OffsetDateTime to);
+                                         OffsetDateTime to, int offset, int limit);
+
+    long countReports(Long groupId, Long locationId, ReportType reportType, OffsetDateTime from, OffsetDateTime to);
 
     ReportDetailResponse findReport(Long reportId, Long userId);
 

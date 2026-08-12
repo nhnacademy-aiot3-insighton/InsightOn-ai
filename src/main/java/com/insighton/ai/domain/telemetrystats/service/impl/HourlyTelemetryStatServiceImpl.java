@@ -1,5 +1,8 @@
 package com.insighton.ai.domain.telemetrystats.service.impl;
 
+import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.dto.LocationResponse;
+import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.telemetrystats.entity.HourlyTelemetryStat;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
@@ -20,6 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.core.type.TypeReference;
@@ -37,31 +41,55 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
     private final HourlyTelemetryStatRepository hourlyTelemetryStatRepository;
     private final Validator validator;
     private final JsonMapper jsonMapper;
+    private final CoreClient coreClient;
 
     /**
-     * 위치 ID(필수), 기간(선택) 조건에 따른 시간별 통계 목록 조회.
+     * 그룹 ID(필수)·위치 ID(필수)·기간(선택) 조건에 따른 시간별 통계 목록 조회. locationId가 groupId 소속인지 Core에 확인해
+     * 다른 그룹 소속 위치를 조회하지 못하게 막는다.
      *
+     * @param groupId    그룹 ID(필수)
      * @param locationId 위치 ID(필수)
      * @param from       조회 시작 시각(선택)
      * @param to         조회 종료 시각(선택)
+     * @param pageable   페이지 정보
      * @return 시간별 통계 목록 응답
-     * @throws InvalidRequestException locationId가 null인 경우
+     * @throws InvalidRequestException locationId 또는 groupId가 null인 경우
+     * @throws ForbiddenException      locationId가 groupId 소속이 아닌 경우
      */
     @Override
-    public List<HourlyTelemetryStatResponse> findHourlyTelemetryStats(Long locationId,
-                                                                      OffsetDateTime from, OffsetDateTime to) {
+    public List<HourlyTelemetryStatResponse> findHourlyTelemetryStats(Long groupId, Long locationId,
+                                                                      OffsetDateTime from, OffsetDateTime to,
+                                                                      Pageable pageable) {
 
+        validateLocationOwnership(groupId, locationId);
+
+        List<HourlyTelemetryStat> stats = hourlyTelemetryStatRepository.search(locationId, from, to, pageable);
+
+        log.info("시간별 통계 조회 - groupId:{}, locationId:{}, from:{}, to:{}, size:{}",
+                groupId, locationId, from, to, stats.size());
+        return stats.stream()
+                .map(HourlyTelemetryStatResponse::from)
+                .toList();
+    }
+
+    @Override
+    public long countHourlyTelemetryStats(Long groupId, Long locationId, OffsetDateTime from, OffsetDateTime to) {
+        validateLocationOwnership(groupId, locationId);
+        return hourlyTelemetryStatRepository.count(locationId, from, to);
+    }
+
+    private void validateLocationOwnership(Long groupId, Long locationId) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId 는 필수값입니다.");
+        }
         if (locationId == null) {
             throw new InvalidRequestException("locationId 는 필수값입니다.");
         }
 
-        List<HourlyTelemetryStat> stats = hourlyTelemetryStatRepository.search(locationId, from, to);
-
-        log.info("시간별 통계 조회 - locationId:{}, from:{}, to:{}, size:{}",
-                locationId, from, to, stats.size());
-        return stats.stream()
-                .map(HourlyTelemetryStatResponse::from)
-                .toList();
+        LocationResponse location = coreClient.getLocation(locationId);
+        if (!groupId.equals(location.groupId())) {
+            throw new ForbiddenException("해당 그룹 소속의 위치가 아닙니다. locationId:" + locationId);
+        }
     }
 
     /**
@@ -159,7 +187,8 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
             throw new InvalidRequestException("locationId는 필수값입니다.");
         }
 
-        List<HourlyTelemetryStat> stats = hourlyTelemetryStatRepository.search(locationId, from, to);
+        List<HourlyTelemetryStat> stats = hourlyTelemetryStatRepository.search(locationId, from, to,
+                Pageable.unpaged());
 
         Map<String, List<Double>> avgSamples = new HashMap<>();
         Map<String, Double> maxByMetric = new HashMap<>();

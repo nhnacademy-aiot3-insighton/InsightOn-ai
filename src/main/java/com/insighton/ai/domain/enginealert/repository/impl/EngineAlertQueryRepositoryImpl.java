@@ -20,7 +20,7 @@ public class EngineAlertQueryRepositoryImpl implements EngineAlertQueryRepositor
 
     @Override
     public List<EngineAlert> search(Long groupId, Long locationId, Severity severity, OffsetDateTime from,
-                                    OffsetDateTime to) {
+                                    OffsetDateTime to, int offset, int limit) {
         return queryFactory
                 .selectFrom(engineAlert)
                 .where(
@@ -31,7 +31,25 @@ public class EngineAlertQueryRepositoryImpl implements EngineAlertQueryRepositor
                         createdAtLoe(to)
                 )
                 .orderBy(engineAlert.createdAt.desc())
+                .offset(offset)
+                .limit(limit)
                 .fetch();
+    }
+
+    @Override
+    public long count(Long groupId, Long locationId, Severity severity, OffsetDateTime from, OffsetDateTime to) {
+        Long total = queryFactory
+                .select(engineAlert.count())
+                .from(engineAlert)
+                .where(
+                        engineAlert.groupId.eq(groupId),
+                        locationIdEq(locationId),
+                        severityEq(severity),
+                        createdAtGoe(from),
+                        createdAtLoe(to)
+                )
+                .fetchOne();
+        return total != null ? total : 0L;
     }
 
     private BooleanExpression locationIdEq(Long locationId) {

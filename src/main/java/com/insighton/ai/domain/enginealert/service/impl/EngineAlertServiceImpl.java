@@ -37,22 +37,36 @@ public class EngineAlertServiceImpl implements EngineAlertService {
 
     @Override
     public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity,
-                                                     OffsetDateTime from, OffsetDateTime to) {
+                                                     OffsetDateTime from, OffsetDateTime to, int offset, int limit) {
 
         if (groupId == null) {
             throw new InvalidRequestException("groupId는 필수값입니다.");
         }
 
-        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(1);
-        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
-
-        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity, resolvedFrom,
-                resolvedTo);
+        List<EngineAlert> alerts = engineAlertRepository.search(groupId, locationId, severity, resolveFrom(from),
+                resolveTo(to), offset, limit);
         log.info("엔진 알람 목록 조회 - groupId:{}, locationId:{}, size:{}", groupId, locationId, alerts.size());
 
         return alerts.stream()
                 .map(EngineAlertResponse::from)
                 .toList();
+    }
+
+    @Override
+    public long countEngineAlerts(Long groupId, Long locationId, Severity severity, OffsetDateTime from,
+                                  OffsetDateTime to) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+        return engineAlertRepository.count(groupId, locationId, severity, resolveFrom(from), resolveTo(to));
+    }
+
+    private OffsetDateTime resolveFrom(OffsetDateTime from) {
+        return from != null ? from : OffsetDateTime.now().minusMonths(1);
+    }
+
+    private OffsetDateTime resolveTo(OffsetDateTime to) {
+        return to != null ? to : OffsetDateTime.now();
     }
 
     @Override
