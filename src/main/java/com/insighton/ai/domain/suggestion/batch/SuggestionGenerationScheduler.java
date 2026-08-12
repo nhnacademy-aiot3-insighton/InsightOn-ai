@@ -57,7 +57,8 @@ public class SuggestionGenerationScheduler {
     /**
      * 업무시간(평일 9~17시) 매 정각 5분 뒤 실행. 정각 통계 집계 배치(0분에 실행)와 Core 날씨 캐시 갱신(정각으로 가정)이 끝난 뒤 도는 걸 보장하기 위해 지연.
      */
-    @Scheduled(cron = "0 5 9-17 * * MON-FRI", zone = "Asia/Seoul")
+//    @Scheduled(cron = "0 5 9-17 * * MON-FRI", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 */10 * * * *", zone = "Asia/Seoul")
     @SchedulerLock(name = "suggestionGeneration", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     public void generateSuggestions() {
         log.info("AI제안 스케줄러 작동");
