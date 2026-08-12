@@ -8,11 +8,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
 public class SuggestionChatTool {
+
+    private static final int MAX_RESULTS = 50;
 
     private final SuggestionLogService suggestionLogService;
 
@@ -26,7 +29,8 @@ public class SuggestionChatTool {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
 
-        return suggestionLogService.findSuggestionLogs(groupId, locationId, from, to);
+        return suggestionLogService.findSuggestionLogs(groupId, locationId, from, to,
+                PageRequest.of(0, MAX_RESULTS));
     }
 
     @Tool(description = "제안로그 ID로 제안 상세 본문(제안 문구, 수락 여부)을 조회한다.")

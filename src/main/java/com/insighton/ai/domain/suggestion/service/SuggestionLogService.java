@@ -5,10 +5,13 @@ import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 
 public interface SuggestionLogService {
     List<SuggestionLogResponse> findSuggestionLogs(Long groupId, Long locationId, OffsetDateTime from,
-                                                   OffsetDateTime to);
+                                                   OffsetDateTime to, Pageable pageable);
+
+    long countSuggestionLogs(Long groupId, Long locationId, OffsetDateTime from, OffsetDateTime to);
 
     SuggestionLogResponse findSuggestionLog(Long suggestionLogId, Long userId);
 

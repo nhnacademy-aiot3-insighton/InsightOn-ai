@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.json.JsonMapper;
@@ -52,22 +53,35 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
      */
     @Override
     public List<SuggestionLogResponse> findSuggestionLogs(Long groupId, Long locationId, OffsetDateTime from,
-                                                          OffsetDateTime to) {
+                                                          OffsetDateTime to, Pageable pageable) {
         if (groupId == null) {
             throw new InvalidRequestException("groupId must not be null");
         }
 
-        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(1);
-        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
-
-        List<SuggestionLog> suggestions = suggestionLogRepository.search(groupId, locationId, resolvedFrom,
-                resolvedTo);
+        List<SuggestionLog> suggestions = suggestionLogRepository.search(groupId, locationId, resolveFrom(from),
+                resolveTo(to), pageable);
         log.info("SuggestionLog 리스트 조회 - groupId: {}, locationId:{}, log size:{}", groupId, locationId,
                 suggestions.size());
 
         return suggestions.stream()
                 .map(SuggestionLogResponse::from)
                 .toList();
+    }
+
+    @Override
+    public long countSuggestionLogs(Long groupId, Long locationId, OffsetDateTime from, OffsetDateTime to) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId must not be null");
+        }
+        return suggestionLogRepository.count(groupId, locationId, resolveFrom(from), resolveTo(to));
+    }
+
+    private OffsetDateTime resolveFrom(OffsetDateTime from) {
+        return from != null ? from : OffsetDateTime.now().minusMonths(1);
+    }
+
+    private OffsetDateTime resolveTo(OffsetDateTime to) {
+        return to != null ? to : OffsetDateTime.now();
     }
 
     /**

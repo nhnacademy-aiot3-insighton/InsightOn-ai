@@ -20,7 +20,7 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
 
     @Override
     public List<Report> search(Long groupId, Long locationId, ReportType reportType,
-                               OffsetDateTime from, OffsetDateTime to) {
+                               OffsetDateTime from, OffsetDateTime to, int offset, int limit) {
         return queryFactory
                 .selectFrom(report)
                 .where(
@@ -31,7 +31,26 @@ public class ReportQueryRepositoryImpl implements ReportQueryRepository {
                         createdAtLoe(to)
                 )
                 .orderBy(report.createdAt.desc())
+                .offset(offset)
+                .limit(limit)
                 .fetch();
+    }
+
+    @Override
+    public long count(Long groupId, Long locationId, ReportType reportType,
+                      OffsetDateTime from, OffsetDateTime to) {
+        Long total = queryFactory
+                .select(report.count())
+                .from(report)
+                .where(
+                        report.groupId.eq(groupId),
+                        locationIdEq(locationId),
+                        reportTypeEq(reportType),
+                        createdAtGoe(from),
+                        createdAtLoe(to)
+                )
+                .fetchOne();
+        return total != null ? total : 0L;
     }
 
     private BooleanExpression locationIdEq(Long locationId) {

@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ReportChatTool {
 
+    private static final int MAX_RESULTS = 50;
+
     private final ReportService reportService;
 
     @Tool(description = "현재 그룹의 주간/월간 리포트 목록을 조회한다. 대화에 위치가 지정돼 있으면 그 위치로 제한된다. "
@@ -33,7 +35,7 @@ public class ReportChatTool {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
 
-        return reportService.findReports(groupId, locationId, reportType, from, to);
+        return reportService.findReports(groupId, locationId, reportType, from, to, 0, MAX_RESULTS);
     }
 
     @Tool(description = "리포트 ID로 리포트 상세 본문을 조회한다. 날짜로 리포트를 찾을 땐 먼저 getReports로 목록을 받아 "
