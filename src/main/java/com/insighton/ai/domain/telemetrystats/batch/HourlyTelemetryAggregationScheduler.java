@@ -1,6 +1,7 @@
 package com.insighton.ai.domain.telemetrystats.batch;
 
 import com.influxdb.client.InfluxDBClient;
+import com.influxdb.exceptions.BadRequestException;
 import com.influxdb.query.FluxRecord;
 import com.influxdb.query.FluxTable;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
@@ -11,6 +12,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -33,12 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
 public class HourlyTelemetryAggregationScheduler {
 
     private static final int LOOKBACK_HOURS = 3;
-
-    /**
-     * sensor_data measurement 안에 숫자가 아닌 값(예: 자석 센서의 OPEN/CLOSED 상태)을 가진 필드가 섞여있으면 mean()/max()/min() 집계 자체가 400 에러로 실패
-     * — 확인된 비숫자 필드는 여기서 제외.
-     */
-    private static final String NON_NUMERIC_FIELD_FILTER = "r._field != \"magnet_status\"";
+    private static final String NON_NUMERIC_FIELD_ERROR_HINT = "unsupported aggregate column type";
 
     private final InfluxDBClient influxDBClient;
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
@@ -60,7 +57,11 @@ public class HourlyTelemetryAggregationScheduler {
         for (int i = 0; i < LOOKBACK_HOURS; i++) {
             OffsetDateTime windowEnd = latestWindowEnd.minusHours(i);
             OffsetDateTime windowStart = windowEnd.minusHours(1);
-            aggregateWindow(windowStart, windowEnd);
+            try {
+                aggregateWindow(windowStart, windowEnd);
+            } catch (Exception e) {
+                log.error("시간 창 집계 실패, 다음 창으로 계속 진행 - windowStart:{}", windowStart, e);
+            }
         }
     }
 
@@ -101,7 +102,8 @@ public class HourlyTelemetryAggregationScheduler {
     }
 
     /**
-     * sensor_data를 location_id/필드별로 그룹핑해 평균/최고/최저 중 하나를 집계한다.
+     * sensor_data를 location_id/필드별로 그룹핑해 평균/최고/최저 중 하나를 집계한다. 필드마다 개별 쿼리를 날려서, 자석 센서의 OPEN/CLOSED 같은 비숫자 필드가 섞여 있어도 그
+     * 필드만 건너뛰고 나머지 숫자 필드는 계속 집계되게 한다 — 어떤 필드가 숫자인지 미리 알 필요 없이, 새 필드가 추가돼도 그대로 동작한다.
      *
      * @param aggFn Flux 집계 함수명("mean"/"max"/"min")
      * @param start 집계 시작 시각(포함)
@@ -110,29 +112,101 @@ public class HourlyTelemetryAggregationScheduler {
      */
     private Map<Long, Map<String, Double>> querySensorAggregate(String aggFn, OffsetDateTime start,
                                                                 OffsetDateTime end) {
+        Map<Long, Map<String, Double>> result = new HashMap<>();
+
+        for (String field : findSensorFields(start, end)) {
+            try {
+                mergeFieldAggregate(result, field, aggFn, start, end);
+            } catch (NonNumericFieldException e) {
+                log.warn("필드 집계 스킵(숫자형이 아님) - field:{}, aggFn:{}", field, aggFn);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 이번 시간 창에 sensor_data measurement에 실제로 존재하는 필드명 목록을 조회한다. 값 타입과 무관하게 전부 반환하고, 숫자 여부 판별은
+     * {@link #mergeFieldAggregate} 호출 시점의 성공/실패로 결정한다.
+     */
+    private Set<String> findSensorFields(OffsetDateTime start, OffsetDateTime end) {
         String flux = """
                 from(bucket: "%s")
                     |> range(start: %s, stop: %s)
                     |> filter(fn: (r) => r._measurement == "sensor_data")
-                    |> filter(fn: (r) => %s)
-                    |> group(columns: ["location_id", "_field"])
-                    |> %s()
-                """.formatted(bucket, toRfc3339(start), toRfc3339(end), NON_NUMERIC_FIELD_FILTER, aggFn);
+                    |> group(columns: ["_field"])
+                    |> limit(n: 1)
+                    |> keep(columns: ["_field"])
+                """.formatted(bucket, toRfc3339(start), toRfc3339(end));
 
-        Map<Long, Map<String, Double>> result = new HashMap<>();
-
+        Set<String> fields = new HashSet<>();
         for (FluxTable table : influxDBClient.getQueryApi().query(flux)) {
+            for (FluxRecord fluxRecord : table.getRecords()) {
+                fields.add(fluxRecord.getField());
+            }
+        }
+        return fields;
+    }
+
+    /**
+     * 필드 하나에 대해서만 집계 쿼리를 실행해 result에 병합한다. 이 필드가 문자열 등 비숫자 타입으로 확인된 경우에만
+     * {@link NonNumericFieldException}을 던져 호출부(querySensorAggregate)가 그 필드만 건너뛰게 한다. 연결/서버 오류,
+     * Flux 문법 오류 등 진짜 오류는 그대로 전파해 상위(aggregate)에서 이번 시간 창 전체를 재시도하게 한다.
+     */
+    private void mergeFieldAggregate(Map<Long, Map<String, Double>> result, String field, String aggFn,
+                                     OffsetDateTime start, OffsetDateTime end) {
+        String flux = """
+                from(bucket: "%s")
+                    |> range(start: %s, stop: %s)
+                    |> filter(fn: (r) => r._measurement == "sensor_data" and r._field == "%s")
+                    |> group(columns: ["location_id"])
+                    |> %s()
+                """.formatted(bucket, toRfc3339(start), toRfc3339(end), escapeFluxString(field), aggFn);
+
+        List<FluxTable> tables;
+        try {
+            tables = influxDBClient.getQueryApi().query(flux);
+        } catch (BadRequestException e) {
+            if (e.getMessage() != null && e.getMessage().contains(NON_NUMERIC_FIELD_ERROR_HINT)) {
+                throw new NonNumericFieldException(field, e);
+            }
+            throw e;
+        }
+
+        for (FluxTable table : tables) {
             for (FluxRecord fluxRecord : table.getRecords()) {
                 Long locationId = Long.valueOf(
                         (String) Objects.requireNonNull(fluxRecord.getValueByKey("location_id")));
+                Object rawValue = Objects.requireNonNull(fluxRecord.getValue());
+                if (!(rawValue instanceof Number number)) {
+                    // max()/min()은 문자열 필드에서도 사전순 비교로 쿼리 자체는 성공할 수 있어 결과 타입으로 걸러냄
+                    throw new NonNumericFieldException(field);
+                }
 
-                String field = fluxRecord.getField();
-                Double value = ((Number) Objects.requireNonNull(fluxRecord.getValue())).doubleValue();
-
-                result.computeIfAbsent(locationId, key -> new HashMap<>()).put(field, value);
+                result.computeIfAbsent(locationId, key -> new HashMap<>()).put(field, number.doubleValue());
             }
         }
-        return result;
+    }
+
+    /**
+     * Flux 문자열 리터럴에 필드명을 안전하게 삽입하기 위한 이스케이프. 필드명에 {@code "}나 {@code \}가 포함돼 있으면
+     * 이스케이프 없이는 Flux 쿼리 문자열이 깨진다.
+     */
+    private String escapeFluxString(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /**
+     * {@link #mergeFieldAggregate}가 특정 필드를 숫자형이 아니라고 확정했을 때만 던지는 마커 예외. 연결 오류 등
+     * 다른 원인의 실패와 구분하기 위한 용도로, {@link #querySensorAggregate}에서 이 타입만 잡아 필드를 건너뛴다.
+     */
+    private static class NonNumericFieldException extends RuntimeException {
+        NonNumericFieldException(String field) {
+            super("비숫자 필드: " + field);
+        }
+
+        NonNumericFieldException(String field, Throwable cause) {
+            super("비숫자 필드: " + field, cause);
+        }
     }
 
     /**
