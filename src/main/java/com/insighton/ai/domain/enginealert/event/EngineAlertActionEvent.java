@@ -10,6 +10,10 @@ import org.hibernate.validator.constraints.Length;
 @Schema(description = "Rule Engine ALERT_ACTION 노드가 발행하는 알람 생성 이벤트 (RabbitMQ 수신 겸 내부 생성 요청)")
 public record EngineAlertActionEvent(
 
+        @Schema(description = "이벤트 고유 ID(UUID). 발화 시점에 한 번만 생성하고, 발행 재시도 시에도 동일한 값을 재사용해야 함")
+        @NotBlank
+        String eventId,
+
         @Schema(description = "그룹 ID", example = "5")
         @NotNull
         Long groupId,

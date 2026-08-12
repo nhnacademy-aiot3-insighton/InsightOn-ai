@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -91,6 +92,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
         }
 
         EngineAlert alert = EngineAlert.builder()
+                .eventId(event.eventId())
                 .groupId(event.groupId())
                 .locationId(event.locationId())
                 .flowId(event.flowId())
@@ -100,7 +102,13 @@ public class EngineAlertServiceImpl implements EngineAlertService {
                 .triggerValue(event.triggerValue())
                 .build();
 
-        EngineAlert savedAlert = engineAlertRepository.save(alert);
+        EngineAlert savedAlert;
+        try {
+            savedAlert = engineAlertRepository.save(alert);
+        } catch (DataIntegrityViolationException e) {
+            log.info("이미 처리된 알람 이벤트, 스킵 - eventId:{}", event.eventId());
+            return;
+        }
 
         log.info("엔진 알람 생성 - engineAlertId:{}, severity:{}", savedAlert.getEngineAlertId(), savedAlert.getSeverity());
 

@@ -29,6 +29,9 @@ public class EngineAlert {
     @Column(name = "engine_alert_id")
     private Long engineAlertId;
 
+    @Column(name = "event_id", nullable = false, unique = true)
+    private String eventId;
+
     @Column(name = "group_id", nullable = false)
     private Long groupId;
 
@@ -57,8 +60,9 @@ public class EngineAlert {
     private OffsetDateTime createdAt;
 
     @Builder
-    public EngineAlert(Long groupId, Long locationId, Long flowId,
+    public EngineAlert(String eventId, Long groupId, Long locationId, Long flowId,
                        String title, String message, Severity severity, Map<String, Object> triggerValue) {
+        this.eventId = eventId;
         this.groupId = groupId;
         this.locationId = locationId;
         this.flowId = flowId;
