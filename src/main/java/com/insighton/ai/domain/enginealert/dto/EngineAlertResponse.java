@@ -3,8 +3,8 @@ package com.insighton.ai.domain.enginealert.dto;
 import com.insighton.ai.domain.enginealert.entity.EngineAlert;
 import com.insighton.ai.domain.enginealert.entity.Severity;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Map;
 
 @Schema(description = "엔진 알람")
 public record EngineAlertResponse(
@@ -30,8 +30,8 @@ public record EngineAlertResponse(
         @Schema(description = "심각도")
         Severity severity,
 
-        @Schema(description = "알람을 유발한 실제 센서값")
-        BigDecimal triggerValue,
+        @Schema(description = "알람을 유발한 실제 센서값 (예: {\"temperature\":29.5,\"magnet_status\":\"OPEN\"}). 값 타입은 센서마다 다를 수 있음(숫자/문자열)")
+        Map<String, Object> triggerValue,
 
         @Schema(description = "생성일시")
         OffsetDateTime createdAt

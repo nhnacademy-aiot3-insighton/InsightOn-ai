@@ -2,11 +2,11 @@ package com.insighton.ai.domain.enginealert.service.impl;
 
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.common.exception.InvalidRequestException;
-import com.insighton.ai.domain.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.entity.EngineAlert;
 import com.insighton.ai.domain.enginealert.entity.Severity;
+import com.insighton.ai.domain.enginealert.event.EngineAlertActionEvent;
 import com.insighton.ai.domain.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.domain.enginealert.repository.EngineAlertRepository;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
@@ -83,21 +83,21 @@ public class EngineAlertServiceImpl implements EngineAlertService {
 
     @Transactional
     @Override
-    public EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request) {
-        Set<ConstraintViolation<EngineAlertCreateRequest>> violations = validator.validate(request);
+    public void createEngineAlert(EngineAlertActionEvent event) {
+        Set<ConstraintViolation<EngineAlertActionEvent>> violations = validator.validate(event);
 
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException(violations);
         }
 
         EngineAlert alert = EngineAlert.builder()
-                .groupId(request.groupId())
-                .locationId(request.locationId())
-                .flowId(request.flowId())
-                .title(request.title())
-                .message(request.message())
-                .severity(request.severity())
-                .triggerValue(request.triggerValue())
+                .groupId(event.groupId())
+                .locationId(event.locationId())
+                .flowId(event.flowId())
+                .title(event.title())
+                .message(event.message())
+                .severity(event.severity())
+                .triggerValue(event.triggerValue())
                 .build();
 
         EngineAlert savedAlert = engineAlertRepository.save(alert);
@@ -111,8 +111,6 @@ public class EngineAlertServiceImpl implements EngineAlertService {
                 savedAlert.getEngineAlertId(),
                 savedAlert.getTitle()
         ));
-
-        return EngineAlertResponse.from(savedAlert);
     }
 
     @Transactional

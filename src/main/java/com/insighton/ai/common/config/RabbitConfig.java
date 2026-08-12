@@ -24,6 +24,8 @@ public class RabbitConfig {
     public static final String RULE_ENGINE_EVENTS_EXCHANGE = "insighton.rule-engine-events";
     public static final String SUGGESTION_ACTION_QUEUE = "ai-service.suggestion-action.queue";
     public static final String SUGGESTION_ACTION_ROUTING_KEY = "ai.suggestion.action";
+    public static final String ALERT_ACTION_QUEUE = "ai-service.alert-action.queue";
+    public static final String ALERT_ACTION_ROUTING_KEY = "ai.alert.action";
 
     @Bean
     public TopicExchange coreEventsExchange() {
@@ -72,6 +74,19 @@ public class RabbitConfig {
         return BindingBuilder.bind(suggestionActionQueue)
                 .to(ruleEngineEventExchange)
                 .with(SUGGESTION_ACTION_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue engineAlertActionQueue() {
+        return new Queue(ALERT_ACTION_QUEUE, true);
+    }
+
+    @Bean
+    public Binding engineAlertActionBinding(Queue engineAlertActionQueue,
+                                            @Qualifier("ruleEngineEventExchange") TopicExchange ruleEngineEventExchange) {
+        return BindingBuilder.bind(engineAlertActionQueue)
+                .to(ruleEngineEventExchange)
+                .with(ALERT_ACTION_ROUTING_KEY);
     }
 
     @Bean

@@ -8,13 +8,15 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "engine_alerts")
@@ -46,8 +48,9 @@ public class EngineAlert {
     @Column(name = "severity", nullable = false, length = 20)
     private Severity severity;
 
-    @Column(name = "trigger_value", precision = 10, scale = 2)
-    private BigDecimal triggerValue;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "trigger_value")
+    private Map<String, Object> triggerValue;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -55,7 +58,7 @@ public class EngineAlert {
 
     @Builder
     public EngineAlert(Long groupId, Long locationId, Long flowId,
-                       String title, String message, Severity severity, BigDecimal triggerValue) {
+                       String title, String message, Severity severity, Map<String, Object> triggerValue) {
         this.groupId = groupId;
         this.locationId = locationId;
         this.flowId = flowId;

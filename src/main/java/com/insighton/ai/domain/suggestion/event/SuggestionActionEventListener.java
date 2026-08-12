@@ -2,7 +2,6 @@ package com.insighton.ai.domain.suggestion.event;
 
 import com.insighton.ai.common.config.RabbitConfig;
 import com.insighton.ai.domain.suggestion.batch.SuggestionGenerationScheduler;
-import com.insighton.ai.domain.suggestion.event.AiSuggestionActionEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
