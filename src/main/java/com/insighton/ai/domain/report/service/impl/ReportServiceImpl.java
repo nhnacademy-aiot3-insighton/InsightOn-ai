@@ -48,13 +48,25 @@ public class ReportServiceImpl implements ReportService {
      */
     @Override
     public List<ReportListResponse> findReports(Long groupId, Long locationId, ReportType reportType,
-                                                OffsetDateTime from, OffsetDateTime to) {
-        OffsetDateTime resolvedFrom = from != null ? from : OffsetDateTime.now().minusMonths(3);
-        OffsetDateTime resolvedTo = to != null ? to : OffsetDateTime.now();
-
-        return reportRepository.search(groupId, locationId, reportType, resolvedFrom, resolvedTo).stream()
+                                                OffsetDateTime from, OffsetDateTime to, int offset, int limit) {
+        return reportRepository.search(groupId, locationId, reportType, resolveFrom(from), resolveTo(to),
+                        offset, limit).stream()
                 .map(ReportListResponse::from)
                 .toList();
+    }
+
+    @Override
+    public long countReports(Long groupId, Long locationId, ReportType reportType, OffsetDateTime from,
+                             OffsetDateTime to) {
+        return reportRepository.count(groupId, locationId, reportType, resolveFrom(from), resolveTo(to));
+    }
+
+    private OffsetDateTime resolveFrom(OffsetDateTime from) {
+        return from != null ? from : OffsetDateTime.now().minusMonths(3);
+    }
+
+    private OffsetDateTime resolveTo(OffsetDateTime to) {
+        return to != null ? to : OffsetDateTime.now();
     }
 
     /**

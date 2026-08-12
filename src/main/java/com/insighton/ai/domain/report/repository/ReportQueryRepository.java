@@ -7,5 +7,8 @@ import java.util.List;
 
 public interface ReportQueryRepository {
     List<Report> search(Long groupId, Long locationId, ReportType reportType,
-                        OffsetDateTime from, OffsetDateTime to);
+                        OffsetDateTime from, OffsetDateTime to, int offset, int limit);
+
+    long count(Long groupId, Long locationId, ReportType reportType,
+              OffsetDateTime from, OffsetDateTime to);
 }

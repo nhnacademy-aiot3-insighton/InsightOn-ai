@@ -7,6 +7,10 @@ import com.insighton.ai.domain.enginealert.service.EngineAlertService;
 import java.time.OffsetDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,14 +29,19 @@ public class EngineAlertController implements EngineAlertApi {
 
     @Override
     @GetMapping
-    public ResponseEntity<List<EngineAlertResponse>> getEngineAlerts(
+    public ResponseEntity<Page<EngineAlertResponse>> getEngineAlerts(
             @RequestParam Long groupId,
             @RequestParam(required = false) Long locationId,
             @RequestParam(required = false) Severity severity,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime to,
+            @PageableDefault(size = 20) Pageable pageable
     ) {
-        return ResponseEntity.ok(engineAlertService.getEngineAlerts(groupId, locationId, severity, from, to));
+        List<EngineAlertResponse> content = engineAlertService.getEngineAlerts(groupId, locationId, severity, from,
+                to, (int) pageable.getOffset(), pageable.getPageSize());
+        long total = engineAlertService.countEngineAlerts(groupId, locationId, severity, from, to);
+
+        return ResponseEntity.ok(new PageImpl<>(content, pageable, total));
     }
 
     @Override

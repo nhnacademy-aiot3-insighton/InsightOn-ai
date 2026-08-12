@@ -1,7 +1,7 @@
 package com.insighton.ai.domain.telemetrystats.batch;
 
 import com.influxdb.client.InfluxDBClient;
-import com.influxdb.exceptions.BadRequestException;
+import com.influxdb.exceptions.InfluxException;
 import com.influxdb.query.FluxRecord;
 import com.influxdb.query.FluxTable;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
@@ -35,7 +35,8 @@ import tools.jackson.databind.json.JsonMapper;
 public class HourlyTelemetryAggregationScheduler {
 
     private static final int LOOKBACK_HOURS = 3;
-    private static final String NON_NUMERIC_FIELD_ERROR_HINT = "unsupported aggregate column type";
+    private static final String NON_NUMERIC_FIELD_TYPE_MISMATCH_HINT = "unsupported aggregate column type";
+    private static final String NON_NUMERIC_FIELD_UNSUPPORTED_AGG_HINT = "unsupported for aggregate";
 
     private final InfluxDBClient influxDBClient;
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
@@ -165,8 +166,8 @@ public class HourlyTelemetryAggregationScheduler {
         List<FluxTable> tables;
         try {
             tables = influxDBClient.getQueryApi().query(flux);
-        } catch (BadRequestException e) {
-            if (e.getMessage() != null && e.getMessage().contains(NON_NUMERIC_FIELD_ERROR_HINT)) {
+        } catch (InfluxException e) {
+            if (isNonNumericFieldError(e)) {
                 throw new NonNumericFieldException(field, e);
             }
             throw e;
@@ -185,6 +186,18 @@ public class HourlyTelemetryAggregationScheduler {
                 result.computeIfAbsent(locationId, key -> new HashMap<>()).put(field, number.doubleValue());
             }
         }
+    }
+
+    /**
+     * InfluxDB가 비숫자 필드 집계 시 던지는 걸로 확인된 오류 패턴을 판별한다. mean()은 BadRequestException(400,
+     * "unsupported aggregate column type string")을, max()/min()은 InternalServerErrorException(500,
+     * "panic: unsupported for aggregate max: ...")을 던지는 등 집계 함수마다 실패 형태가 달라 메시지 기반으로 함께 판별한다.
+     */
+    private boolean isNonNumericFieldError(InfluxException e) {
+        String message = e.getMessage();
+        return message != null
+                && (message.contains(NON_NUMERIC_FIELD_TYPE_MISMATCH_HINT)
+                    || message.contains(NON_NUMERIC_FIELD_UNSUPPORTED_AGG_HINT));
     }
 
     /**
