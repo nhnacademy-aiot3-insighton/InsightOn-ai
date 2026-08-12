@@ -1,14 +1,14 @@
 package com.insighton.ai.domain.suggestion.batch;
 
 import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
-import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.dto.WeatherResponse;
-import com.insighton.ai.domain.suggestion.event.AiSuggestionActionEvent;
 import com.insighton.ai.domain.suggestion.dto.SuggestionDraft;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
+import com.insighton.ai.domain.suggestion.event.AiSuggestionActionEvent;
 import com.insighton.ai.domain.suggestion.service.SuggestionLogService;
 import com.insighton.ai.domain.telemetrystats.dto.PeriodTelemetrySummary;
 import com.insighton.ai.domain.telemetrystats.service.HourlyTelemetryStatService;
@@ -57,9 +57,10 @@ public class SuggestionGenerationScheduler {
     /**
      * 업무시간(평일 9~17시) 매 정각 5분 뒤 실행. 정각 통계 집계 배치(0분에 실행)와 Core 날씨 캐시 갱신(정각으로 가정)이 끝난 뒤 도는 걸 보장하기 위해 지연.
      */
-    @Scheduled(cron = "0 5 9-17 * * MON-FRI")
+    @Scheduled(cron = "0 5 9-17 * * MON-FRI", zone = "Asia/Seoul")
     @SchedulerLock(name = "suggestionGeneration", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     public void generateSuggestions() {
+        log.info("AI제안 스케줄러 작동");
         OffsetDateTime currentHour = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.HOURS)
                 .minusHours(1);
 
@@ -83,6 +84,7 @@ public class SuggestionGenerationScheduler {
      * @param currentHour 방금 집계된 시간(hourly_telemetry_stats의 logHour)
      */
     void generateOneSuggestion(Long locationId, OffsetDateTime currentHour) {
+        log.info("locationId: {} , AI제안 시작", locationId);
         PeriodTelemetrySummary current = hourlyTelemetryStatService.summarizePeriod(locationId, currentHour,
                 currentHour);
         if (current.metricsAvg().isEmpty()) {
