@@ -4,6 +4,7 @@ import com.insighton.ai.domain.enginealert.entity.Severity;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.time.OffsetDateTime;
 import java.util.Map;
 import org.hibernate.validator.constraints.Length;
 
@@ -41,6 +42,9 @@ public record EngineAlertActionEvent(
 
         @Schema(description = "알람을 유발한 실제 센서값 (예: {\"temperature\":29.5,\"magnet_status\":\"OPEN\"}). "
                 + "SCHEDULE_TRIGGER처럼 센서값이 없으면 null 허용")
-        Map<String, Object> triggerValue
+        Map<String, Object> triggerValue,
+
+        @Schema(description = "생성일시")
+        OffsetDateTime createdAt
 ) {
 }
