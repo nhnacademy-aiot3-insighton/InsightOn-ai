@@ -1,11 +1,11 @@
 package com.insighton.ai.domain.report.tool;
 
 import com.insighton.ai.domain.report.dto.ReportDetailResponse;
-import com.insighton.ai.domain.report.dto.ReportListResponse;
 import com.insighton.ai.domain.report.entity.ReportType;
 import com.insighton.ai.domain.report.service.ReportService;
 import java.time.OffsetDateTime;
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
@@ -17,12 +17,14 @@ import org.springframework.stereotype.Component;
 public class ReportChatTool {
 
     private static final int MAX_RESULTS = 50;
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final ReportService reportService;
 
     @Tool(description = "현재 그룹의 주간/월간 리포트 목록을 조회한다. 대화에 위치가 지정돼 있으면 그 위치로 제한된다. "
-            + "'주간'은 WEEKLY, '월간'은 MONTHLY로 매핑한다. from/to를 지정 안 하면 최근 3개월로 조회한다.")
-    public List<ReportListResponse> getReports(
+            + "'주간'은 WEEKLY, '월간'은 MONTHLY로 매핑한다. from/to를 지정 안 하면 최근 3개월로 조회한다. "
+            + "결과는 'id=리포트ID | loc=위치ID | 종류 | 제목 | 생성일시' 형식의 한 줄씩이다.")
+    public String getReports(
             @ToolParam(description = "리포트 종류로 필터링. WEEKLY 또는 MONTHLY, 지정 안하면 전체", required = false)
             ReportType reportType,
 
@@ -35,7 +37,14 @@ public class ReportChatTool {
         Long groupId = (Long) toolContext.getContext().get("groupId");
         Long locationId = (Long) toolContext.getContext().get("locationId");
 
-        return reportService.findReports(groupId, locationId, reportType, from, to, 0, MAX_RESULTS);
+        var reports = reportService.findReports(groupId, locationId, reportType, from, to, 0, MAX_RESULTS);
+        if (reports.isEmpty()) {
+            return "조회된 리포트 없음";
+        }
+        return reports.stream()
+                .map(r -> "id=%d | loc=%d | %s | %s | %s".formatted(
+                        r.reportId(), r.locationId(), r.reportType(), r.title(), r.createdAt().format(DATE_FORMAT)))
+                .collect(Collectors.joining("\n"));
     }
 
     @Tool(description = "리포트 ID로 리포트 상세 본문을 조회한다. 날짜로 리포트를 찾을 땐 먼저 getReports로 목록을 받아 "

@@ -41,11 +41,21 @@ public class SuggestionGenerationScheduler {
             "humidity", new double[]{40.0, 60.0}
     );
 
-    // TODO: Core 확정 대기 중인 임시 값
-    private static final Map<String, List<String>> ACTUATOR_COMMANDS = Map.of(
-            "AIRCON", List.of("POWER_STATUS", "MODE", "SET_TEMPERATURE"),
-            "AIR_PURIFIER", List.of("POWER_STATUS"),
-            "VENTILATION_FAN", List.of("POWER_STATUS")
+    // Core com.insighton.core.domain.actuators.policy의 CommandType/CommandValueRule 확정값과 동일하게 유지할 것
+    private static final Map<String, Map<String, String>> ACTUATOR_COMMANDS = Map.of(
+            "AIRCON", Map.of(
+                    "POWER_STATUS", "ON, OFF",
+                    "OPERATION_MODE", "COOL, DRY, FAN, AUTO",
+                    "SET_TEMPERATURE", "18~30 사이 숫자"
+            ),
+            "AIR_PURIFIER", Map.of(
+                    "POWER_STATUS", "ON, OFF",
+                    "OPERATION_MODE", "AUTO, SLEEP, TURBO"
+            ),
+            "VENTILATION_FAN", Map.of(
+                    "POWER_STATUS", "ON, OFF",
+                    "OPERATION_MODE", "LOW, MID, HIGH"
+            )
     );
 
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
@@ -255,9 +265,12 @@ public class SuggestionGenerationScheduler {
             sb.append("- 습도: ").append(weather.forecastHumidity()).append("%\n");
         }
 
-        sb.append("\n## 조작 가능한 명령 (이 목록 안에서만 선택)\n");
-        ACTUATOR_COMMANDS.forEach((type, commands) ->
-                sb.append("- ").append(type).append(": ").append(String.join(", ", commands)).append("\n"));
+        sb.append("\n## 조작 가능한 명령과 허용값 (이 목록 안에서만 선택)\n");
+        ACTUATOR_COMMANDS.forEach((type, commands) -> {
+            sb.append("- ").append(type).append("\n");
+            commands.forEach((command, allowedValues) ->
+                    sb.append("  - ").append(command).append(": ").append(allowedValues).append("\n"));
+        });
 
         sb.append("\n---\n");
         sb.append("쾌적 기준값을 벗어났거나 벗어날 조짐이 보이면 actionNeeded=true로 하세요. ")
