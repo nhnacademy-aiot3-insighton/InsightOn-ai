@@ -3,6 +3,7 @@ package com.insighton.ai.common.config;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -24,6 +25,11 @@ public class RabbitConfig {
     public static final String RULE_ENGINE_EVENTS_EXCHANGE = "insighton.rule-engine-events";
     public static final String SUGGESTION_ACTION_QUEUE = "ai-service.suggestion-action.queue";
     public static final String SUGGESTION_ACTION_ROUTING_KEY = "ai.suggestion.action";
+    public static final String ALERT_ACTION_QUEUE = "ai-service.alert-action.queue";
+    public static final String ALERT_ACTION_ROUTING_KEY = "ai.alert.action";
+
+    public static final String RULE_ENGINE_DEAD_LETTER_EXCHANGE = "insighton.rule-engine-events.dlx";
+    public static final String ALERT_ACTION_DLQ = "ai-service.alert-action.dlq";
 
     @Bean
     public TopicExchange coreEventsExchange() {
@@ -72,6 +78,40 @@ public class RabbitConfig {
         return BindingBuilder.bind(suggestionActionQueue)
                 .to(ruleEngineEventExchange)
                 .with(SUGGESTION_ACTION_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue engineAlertActionQueue() {
+        return QueueBuilder.durable(ALERT_ACTION_QUEUE)
+                .withArgument("x-dead-letter-exchange", RULE_ENGINE_DEAD_LETTER_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", ALERT_ACTION_ROUTING_KEY)
+                .build();
+    }
+
+    @Bean
+    public Binding engineAlertActionBinding(Queue engineAlertActionQueue,
+                                            @Qualifier("ruleEngineEventExchange") TopicExchange ruleEngineEventExchange) {
+        return BindingBuilder.bind(engineAlertActionQueue)
+                .to(ruleEngineEventExchange)
+                .with(ALERT_ACTION_ROUTING_KEY);
+    }
+
+    @Bean
+    public TopicExchange ruleEngineDeadLetterExchange() {
+        return new TopicExchange(RULE_ENGINE_DEAD_LETTER_EXCHANGE);
+    }
+
+    @Bean
+    public Queue alertActionDeadLetterQueue() {
+        return new Queue(ALERT_ACTION_DLQ, true);
+    }
+
+    @Bean
+    public Binding alertActionDeadLetterBinding(Queue alertActionDeadLetterQueue,
+                                                @Qualifier("ruleEngineDeadLetterExchange") TopicExchange ruleEngineDeadLetterExchange) {
+        return BindingBuilder.bind(alertActionDeadLetterQueue)
+                .to(ruleEngineDeadLetterExchange)
+                .with(ALERT_ACTION_ROUTING_KEY);
     }
 
     @Bean

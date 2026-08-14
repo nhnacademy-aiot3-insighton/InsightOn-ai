@@ -2,11 +2,11 @@ package com.insighton.ai.domain.enginealert.service.impl;
 
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.common.exception.InvalidRequestException;
-import com.insighton.ai.domain.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.entity.EngineAlert;
 import com.insighton.ai.domain.enginealert.entity.Severity;
+import com.insighton.ai.domain.enginealert.event.EngineAlertActionEvent;
 import com.insighton.ai.domain.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.domain.enginealert.repository.EngineAlertRepository;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
@@ -18,11 +18,14 @@ import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 @Slf4j
@@ -34,6 +37,7 @@ public class EngineAlertServiceImpl implements EngineAlertService {
     private final Validator validator;
     private final GroupAuthorizationService groupAuthorizationService;
     private final DashboardNotificationService dashboardNotificationService;
+    private final JsonMapper jsonMapper;
 
     @Override
     public List<EngineAlertResponse> getEngineAlerts(Long groupId, Long locationId, Severity severity,
@@ -83,36 +87,32 @@ public class EngineAlertServiceImpl implements EngineAlertService {
 
     @Transactional
     @Override
-    public EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request) {
-        Set<ConstraintViolation<EngineAlertCreateRequest>> violations = validator.validate(request);
-
+    public void createEngineAlert(EngineAlertActionEvent event) {
+        Set<ConstraintViolation<EngineAlertActionEvent>> violations = validator.validate(event);
         if (!violations.isEmpty()) {
             throw new ConstraintViolationException(violations);
         }
 
-        EngineAlert alert = EngineAlert.builder()
-                .groupId(request.groupId())
-                .locationId(request.locationId())
-                .flowId(request.flowId())
-                .title(request.title())
-                .message(request.message())
-                .severity(request.severity())
-                .triggerValue(request.triggerValue())
-                .build();
+        String triggerValueJson = writeTriggerValueAsJson(event.triggerValue());
 
-        EngineAlert savedAlert = engineAlertRepository.save(alert);
+        Optional<Long> claimedId = engineAlertRepository.claimEventId(
+                event.eventId(), event.groupId(), event.locationId(), event.flowId(),
+                event.title(), event.message(), event.severity().name(), triggerValueJson);
 
-        log.info("엔진 알람 생성 - engineAlertId:{}, severity:{}", savedAlert.getEngineAlertId(), savedAlert.getSeverity());
+        if (claimedId.isEmpty()) {
+            log.info("이미 처리된 알람 이벤트, 스킵 - eventId:{}", event.eventId());
+            return;
+        }
+
+        log.info("엔진 알람 생성 - engineAlertId:{}, severity:{}", claimedId.get(), event.severity());
 
         dashboardNotificationService.create(new DashboardNotificationCreateRequest(
-                savedAlert.getGroupId(),
-                savedAlert.getLocationId(),
+                event.groupId(),
+                event.locationId(),
                 NotificationType.ENGINE_ALERT,
-                savedAlert.getEngineAlertId(),
-                savedAlert.getTitle()
+                claimedId.get(),
+                event.title()
         ));
-
-        return EngineAlertResponse.from(savedAlert);
     }
 
     @Transactional
@@ -149,5 +149,10 @@ public class EngineAlertServiceImpl implements EngineAlertService {
                 .toList();
 
         return new EngineAlertSummary(criticalCount, warningCount, topAlertTitles);
+    }
+
+    private String writeTriggerValueAsJson(Map<String, Object> triggerValue) {
+
+        return jsonMapper.writeValueAsString(triggerValue);
     }
 }

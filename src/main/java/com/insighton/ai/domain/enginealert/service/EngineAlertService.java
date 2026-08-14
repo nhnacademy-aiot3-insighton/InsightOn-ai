@@ -1,9 +1,9 @@
 package com.insighton.ai.domain.enginealert.service;
 
-import com.insighton.ai.domain.enginealert.dto.EngineAlertCreateRequest;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.entity.Severity;
+import com.insighton.ai.domain.enginealert.event.EngineAlertActionEvent;
 import java.time.OffsetDateTime;
 import java.util.List;
 
@@ -16,7 +16,7 @@ public interface EngineAlertService {
 
     EngineAlertResponse getEngineAlert(Long engineAlertId, Long userId);
 
-    EngineAlertResponse createEngineAlert(EngineAlertCreateRequest request);
+    void createEngineAlert(EngineAlertActionEvent event);
 
     void deleteByGroup(Long groupId);
 
