@@ -3,6 +3,7 @@ package com.insighton.ai.domain.enginealert.repository;
 import com.insighton.ai.domain.enginealert.entity.EngineAlert;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,7 +20,11 @@ public interface EngineAlertRepository extends JpaRepository<EngineAlert, Long>,
                                 @Param("title") String title, @Param("message") String message,
                                 @Param("severity") String severity, @Param("triggerValue") String triggerValueJson);
 
-    void deleteByGroupId(Long groupId);
+    @Modifying
+    @Query("delete from EngineAlert e where e.groupId = :groupId")
+    void deleteByGroupId(@Param("groupId") Long groupId);
 
-    void deleteByLocationId(Long locationId);
+    @Modifying
+    @Query("delete from EngineAlert e where e.locationId = :locationId")
+    void deleteByLocationId(@Param("locationId") Long locationId);
 }
