@@ -1,5 +1,6 @@
 package com.insighton.ai.common.config;
 
+import com.insighton.ai.adapter.client.tool.ActuatorChatTool;
 import com.insighton.ai.adapter.client.tool.LocationChatTool;
 import com.insighton.ai.domain.enginealert.tool.EngineAlertChatTool;
 import com.insighton.ai.domain.notification.tool.NotificationChatTool;
@@ -37,12 +38,14 @@ public class ChatMemoryConfig {
                                     EngineAlertChatTool engineAlertChatTool,
                                     SuggestionChatTool suggestionChatTool,
                                     NotificationChatTool notificationChatTool,
-                                    LocationChatTool locationChatTool) {
+                                    LocationChatTool locationChatTool,
+                                    ActuatorChatTool actuatorChatTool) {
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .defaultTools(reportChatTool, telemetryStatChatTool,
                         engineAlertChatTool, suggestionChatTool,
-                        notificationChatTool, locationChatTool)
+                        notificationChatTool, locationChatTool,
+                        actuatorChatTool)
                 .build();
     }
 }
