@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "insighton-core", path = "/internal/v1")
+@FeignClient(name = "insighton-core", path = "/internal/v1", url = "${core-service.url}")
 public interface CoreClient {
 
     @GetMapping("/groups/{group-id}/members")
