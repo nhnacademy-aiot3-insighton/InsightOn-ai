@@ -6,8 +6,8 @@ import com.insighton.ai.adapter.client.dto.ActuatorRunLogResponse;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
-import com.insighton.ai.domain.report.entity.ReportType;
 import com.insighton.ai.domain.report.dto.ReportCreateRequest;
+import com.insighton.ai.domain.report.entity.ReportType;
 import com.insighton.ai.domain.report.service.ReportService;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
 import com.insighton.ai.domain.suggestion.service.SuggestionLogService;
@@ -50,8 +50,7 @@ public class ReportGenerationScheduler {
     /**
      * 매주 월요일 00:00 실행. 직전 월~일(7일)을 이번 기간, 그 전 7일을 비교 기준(지난 기간)
      */
-    // @Scheduled(cron = "0 0 0 * * MON")
-    @Scheduled(cron = "0 */10 * * * *") // TODO: 테스트용 10분 주기 — 확인 끝나면 위 원래 cron으로 되돌릴 것
+    @Scheduled(cron = "0 0 0 * * MON")
     @SchedulerLock(name = "weeklyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateWeeklyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
@@ -63,8 +62,7 @@ public class ReportGenerationScheduler {
     /**
      * 매월 1일 00:00 실행. 직전 달 1일~말일을 이번 기간, 그 전달을 비교 기준(지난 기간)
      */
-    // @Scheduled(cron = "0 0 0 1 * *")
-    @Scheduled(cron = "0 */10 * * * *") // TODO: 테스트용 10분 주기 — 확인 끝나면 위 원래 cron으로 되돌릴 것
+    @Scheduled(cron = "0 0 0 1 * *")
     @SchedulerLock(name = "monthlyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateMonthlyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
