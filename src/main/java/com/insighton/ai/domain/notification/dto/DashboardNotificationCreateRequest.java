@@ -13,7 +13,6 @@ public record DashboardNotificationCreateRequest(
         Long groupId,
 
         @Schema(description = "위치 ID", example = "10")
-        @NotNull
         Long locationId,
 
         @Schema(description = "알림 종류")

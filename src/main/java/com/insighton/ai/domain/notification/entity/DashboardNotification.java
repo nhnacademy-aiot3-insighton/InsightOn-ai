@@ -29,7 +29,7 @@ public class DashboardNotification {
     @Column(name = "group_id", nullable = false)
     private Long groupId;
 
-    @Column(name = "location_id", nullable = false)
+    @Column(name = "location_id")
     private Long locationId;
 
     @Enumerated(EnumType.STRING)

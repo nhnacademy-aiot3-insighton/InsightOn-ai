@@ -32,7 +32,11 @@ public class GroupLifecycleEventListener {
         suggestionLogService.deleteByGroup(event.groupId());
         engineAlertService.deleteByGroup(event.groupId());
         dashboardNotificationService.deleteByGroup(event.groupId());
-        hourlyTelemetryStatService.deleteByLocations(event.locationIds());
+
+        //location이 할당 되지 않은 group 삭제 시 예외 방지
+        if (!event.locationIds().isEmpty()) {
+            hourlyTelemetryStatService.deleteByLocations(event.locationIds());
+        }
 
         log.info("GroupDeleted 처리 완료 - groupId: {}", event.groupId());
     }
