@@ -3,6 +3,7 @@ package com.insighton.ai.domain.suggestion.service.impl;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.domain.notification.entity.NotificationType;
@@ -157,12 +158,12 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         SuggestionLog suggestionLog = suggestionLogRepository.findById(suggestionLogId)
                 .orElseThrow(() -> new SuggestionLogNotFoundException(suggestionLogId));
 
-        groupAuthorizationService.requireMembership(suggestionLog.getGroupId(), userId);
+        groupAuthorizationService.requireRole(suggestionLog.getGroupId(), userId, GroupRole.MANAGER);
 
         suggestionLog.changeAccepted(true);
 
         ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
-        // TODO: Core 액추에이터 명령/값 API 확정되면 요청/응답 형식 재검토 — core-actuator-command-vocabulary-request.md 참고
+
         if (actionPayload.actuatorType() != null) {
             coreClient.executeActuatorCommand(actionPayload);
         }
@@ -185,7 +186,7 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         SuggestionLog suggestionLog = suggestionLogRepository.findById(suggestionLogId)
                 .orElseThrow(() -> new SuggestionLogNotFoundException(suggestionLogId));
 
-        groupAuthorizationService.requireMembership(suggestionLog.getGroupId(), userId);
+        groupAuthorizationService.requireRole(suggestionLog.getGroupId(), userId, GroupRole.MANAGER);
 
         log.info("AI 제안 거절 - suggestionLogId:{}", suggestionLogId);
 
