@@ -1,6 +1,6 @@
 package com.insighton.ai.adapter.client;
 
-import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.ActuatorRunLogResponse;
 import com.insighton.ai.adapter.client.dto.GroupMemberResponse;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
@@ -11,7 +11,7 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -44,12 +44,11 @@ public interface CoreClient {
 
 
     /**
-     * AI가 액츄에이터 조작 시 호출할 API ex) 에어컨 ON / OFF 등
-     *
-     * @param actionPayload 액츄에이터 조작용 DTO
+     * AI가 액츄에이터 조작 시 호출할 API ex) 에어컨 ON / OFF
      */
-    @PostMapping("/actuators/commands")
-    void executeActuatorCommand(@RequestBody ActionPayload actionPayload);
+    @PutMapping("/locations/{location-id}/actuators/state")
+    void executeActuatorCommand(@PathVariable("location-id") Long locationId,
+                                @RequestBody ActuatorCommandRequest request);
 
 
     /**

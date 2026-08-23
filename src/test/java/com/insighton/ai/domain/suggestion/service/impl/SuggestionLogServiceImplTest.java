@@ -13,6 +13,8 @@ import static org.mockito.Mockito.verify;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
+import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
@@ -184,7 +186,7 @@ class SuggestionLogServiceImplTest {
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
-        verify(coreClient).executeActuatorCommand(actionPayload);
+        verify(coreClient).executeActuatorCommand(42L, new ActuatorCommandRequest("AIRCON", "POWER_STATUS", "ON", CallerService.AI_SYSTEM));
     }
 
     @Test
@@ -197,7 +199,7 @@ class SuggestionLogServiceImplTest {
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
-        verify(coreClient, never()).executeActuatorCommand(any());
+        verify(coreClient, never()).executeActuatorCommand(any(), any());
     }
 
     @Test
@@ -210,7 +212,7 @@ class SuggestionLogServiceImplTest {
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(coreClient, never()).executeActuatorCommand(any());
+        verify(coreClient, never()).executeActuatorCommand(any(), any());
     }
 
     @Test
@@ -231,7 +233,7 @@ class SuggestionLogServiceImplTest {
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(ForbiddenException.class);
 
-        verify(coreClient, never()).executeActuatorCommand(any());
+        verify(coreClient, never()).executeActuatorCommand(any(), any());
     }
 
     @Test
