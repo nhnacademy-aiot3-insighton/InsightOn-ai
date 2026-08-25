@@ -2,7 +2,10 @@ package com.insighton.ai.domain.notification.service;
 
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationResponse;
+import com.insighton.ai.domain.notification.entity.NotificationType;
 import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 public interface DashboardNotificationService {
 
@@ -13,6 +16,19 @@ public interface DashboardNotificationService {
      * @return 안 읽은 알림 목록 응답
      */
     List<DashboardNotificationResponse> findUnreadDashboardNotifications(Long groupId);
+
+    /**
+     * 그룹 ID 기준 전체 알림 목록을 읽음 여부·알림 타입으로 필터링해 조회 (알림 히스토리 화면용).
+     *
+     * @param groupId          그룹 ID(필수)
+     * @param isRead           읽음 여부로 필터링, null이면 전체
+     * @param notificationType 알림 타입으로 필터링, null이면 전체
+     * @param pageable         페이지 정보
+     * @return 필터링된 알림 페이지 응답
+     */
+    Page<DashboardNotificationResponse> getDashboardNotifications(Long groupId, Boolean isRead,
+                                                                   NotificationType notificationType,
+                                                                   Pageable pageable);
 
     /**
      * 알림 신규 생성 (engine_alerts/suggestion_logs/reports 생성과 같은 트랜잭션에서 호출되는 내부용).

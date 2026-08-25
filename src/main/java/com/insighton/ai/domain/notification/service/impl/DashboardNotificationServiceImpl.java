@@ -1,12 +1,13 @@
 package com.insighton.ai.domain.notification.service.impl;
 
-import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
+import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.common.exception.InvalidRequestException;
-import com.insighton.ai.domain.notification.entity.DashboardNotification;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationBroadcastEvent;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationResponse;
+import com.insighton.ai.domain.notification.entity.DashboardNotification;
+import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.exception.DashboardNotificationNotFoundException;
 import com.insighton.ai.domain.notification.repository.DashboardNotificationRepository;
 import com.insighton.ai.domain.notification.service.DashboardNotificationService;
@@ -18,6 +19,8 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +58,25 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
         return notifications.stream()
                 .map(DashboardNotificationResponse::from)
                 .toList();
+    }
+
+
+    @Override
+    public Page<DashboardNotificationResponse> getDashboardNotifications(Long groupId, Boolean isRead,
+                                                                         NotificationType notificationType,
+                                                                         Pageable pageable) {
+
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+
+        Page<DashboardNotification> notifications = notificationRepository.search(groupId, isRead, notificationType,
+                pageable);
+
+        log.info("알림 목록 필터 조회 - groupId: {}, isRead:{}, notificationType: {}, size: {}", groupId, isRead,
+                notificationType, notifications.getNumberOfElements());
+
+        return notifications.map(DashboardNotificationResponse::from);
     }
 
     /**
