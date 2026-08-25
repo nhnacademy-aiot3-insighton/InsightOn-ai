@@ -20,6 +20,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -60,6 +63,44 @@ class DashboardNotificationControllerTest {
     @Test
     void getUnreadNotifications_X_User_Id_헤더가_없으면_400을_반환() throws Exception {
         mockMvc.perform(get("/api/v1/dashboard-notifications").param("groupId", "5"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void searchNotifications_정상_조회시_200과_페이지를_반환() throws Exception {
+        DashboardNotificationResponse response = new DashboardNotificationResponse(1L, 42L,
+                NotificationType.GATEWAY, 10L, "제목", true, OffsetDateTime.now());
+        Pageable pageable = PageRequest.of(0, 20);
+        given(notificationService.getDashboardNotifications(5L, true, NotificationType.GATEWAY, pageable))
+                .willReturn(new PageImpl<>(List.of(response), pageable, 1));
+
+        mockMvc.perform(get("/api/v1/dashboard-notifications/search")
+                        .param("groupId", "5")
+                        .param("isRead", "true")
+                        .param("notificationType", "GATEWAY")
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].dashboardNotificationId").value(1))
+                .andExpect(jsonPath("$.content[0].isRead").value(true))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void searchNotifications_필터_파라미터_없이도_조회된다() throws Exception {
+        Pageable pageable = PageRequest.of(0, 20);
+        given(notificationService.getDashboardNotifications(5L, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        mockMvc.perform(get("/api/v1/dashboard-notifications/search")
+                        .param("groupId", "5")
+                        .header("X-User-Id", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    @Test
+    void searchNotifications_groupId가_없으면_400을_반환() throws Exception {
+        mockMvc.perform(get("/api/v1/dashboard-notifications/search").header("X-User-Id", "1"))
                 .andExpect(status().isBadRequest());
     }
 

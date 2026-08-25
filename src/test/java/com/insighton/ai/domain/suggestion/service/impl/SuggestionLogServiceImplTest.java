@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
@@ -222,11 +224,11 @@ class SuggestionLogServiceImplTest {
     }
 
     @Test
-    void accept_그룹_멤버가_아니면_예외() {
+    void accept_MANAGER_미만이면_예외() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{}", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
-        given(groupAuthorizationService.requireMembership(5L, 100L))
-                .willThrow(new ForbiddenException("그룹 멤버가 아닙니다."));
+        willThrow(new ForbiddenException("MANAGER 이상 권한이 필요합니다."))
+                .given(groupAuthorizationService).requireRole(5L, 100L, GroupRole.MANAGER);
 
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(ForbiddenException.class);
@@ -253,11 +255,11 @@ class SuggestionLogServiceImplTest {
     }
 
     @Test
-    void reject_그룹_멤버가_아니면_예외() {
+    void reject_MANAGER_미만이면_예외() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{}", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
-        given(groupAuthorizationService.requireMembership(5L, 100L))
-                .willThrow(new ForbiddenException("그룹 멤버가 아닙니다."));
+        willThrow(new ForbiddenException("MANAGER 이상 권한이 필요합니다."))
+                .given(groupAuthorizationService).requireRole(5L, 100L, GroupRole.MANAGER);
 
         assertThatThrownBy(() -> suggestionLogService.reject(1L, 100L))
                 .isInstanceOf(ForbiddenException.class);

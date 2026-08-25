@@ -34,6 +34,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -85,6 +89,44 @@ class DashboardNotificationServiceImplTest {
                 .isInstanceOf(InvalidRequestException.class);
 
         verify(notificationRepository, never()).findByGroupIdAndIsReadFalseOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    void getDashboardNotifications_성공() {
+        DashboardNotification notification = newNotification(1L, 5L, 42L, NotificationType.GATEWAY, 1L, "제목");
+        Pageable pageable = PageRequest.of(0, 20);
+        given(notificationRepository.search(5L, false, NotificationType.GATEWAY, pageable))
+                .willReturn(new PageImpl<>(List.of(notification), pageable, 1));
+
+        Page<DashboardNotificationResponse> result =
+                dashboardNotificationService.getDashboardNotifications(5L, false, NotificationType.GATEWAY, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).dashboardNotificationId()).isEqualTo(1L);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void getDashboardNotifications_필터_없으면_전체_조회() {
+        DashboardNotification notification = newNotification(1L, 5L, 42L, NotificationType.REPORT, 1L, "제목");
+        Pageable pageable = PageRequest.of(0, 20);
+        given(notificationRepository.search(5L, null, null, pageable))
+                .willReturn(new PageImpl<>(List.of(notification), pageable, 1));
+
+        Page<DashboardNotificationResponse> result =
+                dashboardNotificationService.getDashboardNotifications(5L, null, null, pageable);
+
+        assertThat(result.getContent()).hasSize(1);
+    }
+
+    @Test
+    void getDashboardNotifications_groupId가_null이면_예외() {
+        Pageable pageable = PageRequest.of(0, 20);
+
+        assertThatThrownBy(() -> dashboardNotificationService.getDashboardNotifications(null, null, null, pageable))
+                .isInstanceOf(InvalidRequestException.class);
+
+        verify(notificationRepository, never()).search(any(), any(), any(), any());
     }
 
     @Test
