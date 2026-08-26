@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.insighton.ai.adapter.client.CoreClient;
-import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
@@ -99,7 +99,7 @@ class SuggestionGenerationSchedulerTest {
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
         verify(suggestionLogService, never()).create(any());
-        verify(coreClient, never()).executeActuatorCommand(any());
+        verify(coreClient, never()).executeActuatorCommand(any(), any());
     }
 
     @Test
@@ -118,7 +118,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(coreClient, never()).executeActuatorCommand(any());
+        verify(coreClient, never()).executeActuatorCommand(any(), any());
     }
 
     @Test
@@ -138,8 +138,8 @@ class SuggestionGenerationSchedulerTest {
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isTrue();
 
-        ArgumentCaptor<ActionPayload> actionCaptor = ArgumentCaptor.forClass(ActionPayload.class);
-        verify(coreClient).executeActuatorCommand(actionCaptor.capture());
+        ArgumentCaptor<ActuatorCommandRequest> actionCaptor = ArgumentCaptor.forClass(ActuatorCommandRequest.class);
+        verify(coreClient).executeActuatorCommand(eq(42L), actionCaptor.capture());
         assertThat(actionCaptor.getValue().actuatorType()).isEqualTo("AIRCON");
         assertThat(actionCaptor.getValue().commandValue()).isEqualTo("ON");
     }
@@ -160,7 +160,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(coreClient, never()).executeActuatorCommand(any());
+        verify(coreClient, never()).executeActuatorCommand(any(), any());
     }
 
     @Test

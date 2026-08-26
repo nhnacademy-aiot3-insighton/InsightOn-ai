@@ -1,8 +1,7 @@
 package com.insighton.ai.adapter.client;
 
-import com.insighton.ai.adapter.client.CoreClient;
-import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.adapter.client.dto.GroupMemberResponse;
+import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import feign.FeignException;
 import org.springframework.context.annotation.Lazy;

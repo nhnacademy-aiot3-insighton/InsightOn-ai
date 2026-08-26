@@ -2,6 +2,8 @@ package com.insighton.ai.domain.suggestion.batch;
 
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
+import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
@@ -165,7 +167,9 @@ public class SuggestionGenerationScheduler {
         ));
 
         if (autoExecute) {
-            coreClient.executeActuatorCommand(actionPayload);
+            coreClient.executeActuatorCommand(actionPayload.locationId(),
+                    new ActuatorCommandRequest(actionPayload.actuatorType(), actionPayload.command(),
+                            actionPayload.commandValue(), CallerService.AI_SYSTEM));
         }
 
         log.info("{} 제안 생성 - locationId:{}, autoExecute:{}", sourceLabel, locationId, autoExecute);
