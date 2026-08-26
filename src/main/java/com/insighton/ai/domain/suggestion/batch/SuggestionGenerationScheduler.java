@@ -2,10 +2,10 @@ package com.insighton.ai.domain.suggestion.batch;
 
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
-import com.insighton.ai.adapter.client.dto.CallerService;
-import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
+import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.dto.WeatherResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionDraft;
@@ -154,12 +154,11 @@ public class SuggestionGenerationScheduler {
             return;
         }
 
-        ActuatorType actuatorType = draft.actuatorType();
-        ActionPayload actionPayload = new ActionPayload(locationId, actuatorType != null ? actuatorType.name() : null,
-                draft.command(), draft.commandValue());
+        ActionPayload actionPayload = new ActionPayload(locationId, draft.actions());
         String actionPayloadJson = toJson(actionPayload);
 
-        boolean autoExecute = actuatorType != null && location.autoControlMode() == AutoControlMode.AI_DIRECT;
+        boolean autoExecute = !actionPayload.actions().isEmpty()
+                && location.autoControlMode() == AutoControlMode.AI_DIRECT;
 
         suggestionLogService.create(new SuggestionLogCreateRequest(
                 location.groupId(), locationId, draft.title(), draft.suggestionText(),
@@ -167,12 +166,15 @@ public class SuggestionGenerationScheduler {
         ));
 
         if (autoExecute) {
-            coreClient.executeActuatorCommand(actionPayload.locationId(),
-                    new ActuatorCommandRequest(actionPayload.actuatorType(), actionPayload.command(),
-                            actionPayload.commandValue(), CallerService.AI_SYSTEM));
+            for (ActuatorAction action : actionPayload.actions()) {
+                coreClient.executeActuatorCommand(actionPayload.locationId(),
+                        ActuatorCommandRequest.of(action.actuatorType().name(), action.command(), action.commandValue(),
+                                CallerService.AI_SYSTEM));
+            }
         }
 
-        log.info("{} 제안 생성 - locationId:{}, autoExecute:{}", sourceLabel, locationId, autoExecute);
+        log.info("{} 제안 생성 - locationId:{}, autoExecute:{}, 명령 수:{}", sourceLabel, locationId, autoExecute,
+                actionPayload.actions().size());
     }
 
     /**
@@ -278,12 +280,13 @@ public class SuggestionGenerationScheduler {
 
         sb.append("\n---\n");
         sb.append("쾌적 기준값을 벗어났거나 벗어날 조짐이 보이면 actionNeeded=true로 하세요. ")
-                .append("actuatorType/command/commandValue는 반드시 위 목록에 있는 조합만 쓰세요.\n");
+                .append("actions 배열의 각 항목(actuatorType/command/commandValue)은 반드시 위 목록에 있는 조합만 쓰세요. ")
+                .append("필요하면 여러 액추에이터를 동시에 조작하도록 actions에 여러 개를 담아도 됩니다(예: 에어컨 끄고 환풍기 켜기).\n");
         sb.append("실외 기온이 쾌적하고 미세먼지가 좋음/보통이며, 현재는 물론 1시간 후 예보에도 강수가 없다면, ")
                 .append("액추에이터를 끄고 자연환기(창문 개방)를 제안하는 것도 고려하세요. ")
                 .append("1시간 후 강수가 예보돼 있다면 창문 개방은 제안하지 마세요. ")
                 .append("창문 개방처럼 액추에이터가 아닌 조언은 suggestionText에만 포함하고, ")
-                .append("actionPayload에는 실제로 조작 가능한 액추에이터 명령만 담으세요.\n");
+                .append("actions에는 실제로 조작 가능한 액추에이터 명령만 담으세요(없으면 빈 배열).\n");
         sb.append("특별히 조치할 게 없으면 actionNeeded=false로 하고 나머지 필드는 비우세요.");
 
         return sb.toString();

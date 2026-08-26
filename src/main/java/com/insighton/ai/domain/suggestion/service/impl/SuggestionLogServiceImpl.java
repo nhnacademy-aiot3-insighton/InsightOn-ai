@@ -3,6 +3,7 @@ package com.insighton.ai.domain.suggestion.service.impl;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.GroupRole;
@@ -166,10 +167,10 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
 
         ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
 
-        if (actionPayload.actuatorType() != null) {
+        for (ActuatorAction action : actionPayload.actions()) {
             coreClient.executeActuatorCommand(actionPayload.locationId(),
-                    new ActuatorCommandRequest(actionPayload.actuatorType(), actionPayload.command(),
-                            actionPayload.commandValue(), CallerService.AI_SYSTEM));
+                    ActuatorCommandRequest.of(action.actuatorType().name(), action.command(), action.commandValue(),
+                            CallerService.AI_SYSTEM));
         }
 
         log.info("AI 제안 수락 - suggestionLogId:{}", suggestionLogId);

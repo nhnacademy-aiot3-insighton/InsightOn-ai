@@ -56,7 +56,7 @@ public class ActuatorChatTool {
         }
 
         coreClient.executeActuatorCommand(locationId,
-                new ActuatorCommandRequest(actuatorType.name(), command, commandValue, CallerService.AI_SYSTEM));
+                ActuatorCommandRequest.of(actuatorType.name(), command, commandValue, CallerService.AI_SYSTEM));
 
         return "조작 완료: " + actuatorType + " " + command + "=" + commandValue;
     }
