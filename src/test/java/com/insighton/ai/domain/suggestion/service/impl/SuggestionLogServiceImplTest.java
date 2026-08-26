@@ -16,6 +16,7 @@ import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.CallerService;
+import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
