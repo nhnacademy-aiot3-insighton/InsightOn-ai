@@ -1,7 +1,8 @@
 package com.insighton.ai.adapter.client.tool;
 
 import com.insighton.ai.adapter.client.CoreClient;
-import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
+import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import java.util.List;
@@ -54,7 +55,8 @@ public class ActuatorChatTool {
             return NO_LOCATION_MESSAGE;
         }
 
-        coreClient.executeActuatorCommand(new ActionPayload(locationId, actuatorType.name(), command, commandValue));
+        coreClient.executeActuatorCommand(locationId,
+                new ActuatorCommandRequest(actuatorType.name(), command, commandValue, CallerService.AI_SYSTEM));
 
         return "조작 완료: " + actuatorType + " " + command + "=" + commandValue;
     }
