@@ -14,7 +14,9 @@ import static org.mockito.Mockito.verify;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
+import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
@@ -35,7 +37,6 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -183,21 +184,22 @@ class SuggestionLogServiceImplTest {
     void accept_액추에이터_명령이_있으면_Core를_호출한다() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{\"actuatorType\":\"AIRCON\"}", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
-        ActionPayload actionPayload = new ActionPayload(42L, "AIRCON", "POWER_STATUS", "ON");
+        ActionPayload actionPayload = new ActionPayload(42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON")));
         given(jsonMapper.readValue(anyString(), eq(ActionPayload.class))).willReturn(actionPayload);
 
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
         verify(coreClient).executeActuatorCommand(42L,
-                new ActuatorCommandRequest("AIRCON", "POWER_STATUS", "ON", CallerService.AI_SYSTEM));
+                new ActuatorCommandRequest("AIRCON", "power", "ON", CallerService.AI_SYSTEM));
     }
 
     @Test
     void accept_액추에이터_명령이_없으면_Core를_호출하지_않는다() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{}", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
-        ActionPayload actionPayload = new ActionPayload(42L, null, null, null);
+        ActionPayload actionPayload = new ActionPayload(42L, List.of());
         given(jsonMapper.readValue(anyString(), eq(ActionPayload.class))).willReturn(actionPayload);
 
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
@@ -227,7 +229,6 @@ class SuggestionLogServiceImplTest {
                 .isInstanceOf(SuggestionLogNotFoundException.class);
     }
 
-    @Disabled
     @Test
     void accept_MANAGER_미만이면_예외() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{}", null);
@@ -259,7 +260,6 @@ class SuggestionLogServiceImplTest {
                 .isInstanceOf(SuggestionLogNotFoundException.class);
     }
 
-    @Disabled
     @Test
     void reject_MANAGER_미만이면_예외() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{}", null);
