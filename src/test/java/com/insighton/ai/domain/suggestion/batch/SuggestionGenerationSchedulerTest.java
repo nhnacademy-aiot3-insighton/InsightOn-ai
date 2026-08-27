@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
@@ -94,7 +95,7 @@ class SuggestionGenerationSchedulerTest {
         given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
                 AutoControlMode.SUGGESTION));
         given(coreClient.getWeather(5L)).willReturn(null);
-        stubChatClient(new SuggestionDraft(false, null, null, null, null, null));
+        stubChatClient(new SuggestionDraft(false, null, null, List.of()));
 
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
@@ -111,7 +112,8 @@ class SuggestionGenerationSchedulerTest {
         given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
                 AutoControlMode.SUGGESTION));
         given(coreClient.getWeather(5L)).willReturn(null);
-        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켜세요", ActuatorType.AIRCON, "POWER_STATUS", "ON"));
+        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켜세요",
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))));
 
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
@@ -130,7 +132,8 @@ class SuggestionGenerationSchedulerTest {
         given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
                 AutoControlMode.AI_DIRECT));
         given(coreClient.getWeather(5L)).willReturn(null);
-        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켭니다", ActuatorType.AIRCON, "POWER_STATUS", "ON"));
+        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켭니다",
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))));
 
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
@@ -141,6 +144,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<ActuatorCommandRequest> actionCaptor = ArgumentCaptor.forClass(ActuatorCommandRequest.class);
         verify(coreClient).executeActuatorCommand(eq(42L), actionCaptor.capture());
         assertThat(actionCaptor.getValue().actuatorType()).isEqualTo("AIRCON");
+        assertThat(actionCaptor.getValue().command()).isEqualTo("power");
         assertThat(actionCaptor.getValue().commandValue()).isEqualTo("ON");
     }
 
@@ -153,7 +157,7 @@ class SuggestionGenerationSchedulerTest {
         given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
                 AutoControlMode.AI_DIRECT));
         given(coreClient.getWeather(5L)).willReturn(null);
-        stubChatClient(new SuggestionDraft(true, "환기 추천", "창문을 여세요", null, null, null));
+        stubChatClient(new SuggestionDraft(true, "환기 추천", "창문을 여세요", List.of()));
 
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
@@ -172,7 +176,7 @@ class SuggestionGenerationSchedulerTest {
         given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
                 AutoControlMode.SUGGESTION));
         given(coreClient.getWeather(5L)).willThrow(new RuntimeException("날씨 API 오류"));
-        stubChatClient(new SuggestionDraft(false, null, null, null, null, null));
+        stubChatClient(new SuggestionDraft(false, null, null, List.of()));
 
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
@@ -203,7 +207,8 @@ class SuggestionGenerationSchedulerTest {
         given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
                 AutoControlMode.SUGGESTION));
         given(coreClient.getWeather(5L)).willReturn(null);
-        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켜세요", ActuatorType.AIRCON, "POWER_STATUS", "ON"));
+        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켜세요",
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))));
 
         suggestionGenerationScheduler.generateEventTriggeredSuggestion(event);
 
