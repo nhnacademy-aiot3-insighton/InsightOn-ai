@@ -50,7 +50,7 @@ public class ReportGenerationScheduler {
     /**
      * 매주 월요일 00:00 실행. 직전 월~일(7일)을 이번 기간, 그 전 7일을 비교 기준(지난 기간)
      */
-    @Scheduled(cron = "0 0 0 * * MON")
+    @Scheduled(cron = "0 50 * * * *")
     @SchedulerLock(name = "weeklyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateWeeklyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
@@ -62,7 +62,7 @@ public class ReportGenerationScheduler {
     /**
      * 매월 1일 00:00 실행. 직전 달 1일~말일을 이번 기간, 그 전달을 비교 기준(지난 기간)
      */
-    @Scheduled(cron = "0 0 0 1 * *")
+    @Scheduled(cron = "0 50 * * * *")
     @SchedulerLock(name = "monthlyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateMonthlyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
@@ -226,24 +226,24 @@ public class ReportGenerationScheduler {
 
         sb.append("\n## 이번 기간 실내 환경\n");
         current.metricsAvg().forEach((metric, value) ->
-                sb.append("- ").append(metric).append(" 평균: ").append(value).append("\n"));
+                sb.append("- ").append(metric).append(" 평균: ").append(round1(value)).append("\n"));
         current.metricsMax().forEach((metric, value) ->
-                sb.append("- ").append(metric).append(" 최고: ").append(value).append("\n"));
+                sb.append("- ").append(metric).append(" 최고: ").append(round1(value)).append("\n"));
         current.metricsMin().forEach((metric, value) ->
-                sb.append("- ").append(metric).append(" 최저: ").append(value).append("\n"));
+                sb.append("- ").append(metric).append(" 최저: ").append(round1(value)).append("\n"));
 
         sb.append("\n## 지난 기간 대비\n");
         previous.metricsAvg().forEach((metric, prevValue) -> {
             Double currValue = current.metricsAvg().get(metric);
             if (currValue != null) {
-                sb.append("- ").append(metric).append(" 평균: ").append(prevValue).append(" → ").append(currValue)
-                        .append("\n");
+                sb.append("- ").append(metric).append(" 평균: ").append(round1(prevValue)).append(" → ")
+                        .append(round1(currValue)).append("\n");
             }
         });
 
         sb.append("\n## 액추에이터 가동 현황\n");
         current.actuatorOnMinutes().forEach((type, minutes) ->
-                sb.append("- ").append(type).append(": ").append(minutes).append("분 가동\n"));
+                sb.append("- ").append(type).append(": ").append(round1(minutes)).append("분 가동\n"));
 
         // 월간 리포트에서만 시간대별 패턴(지표별 최고치 시간대)을 프롬프트에 포함
         // 주간은 시간대별 샘플이 요일당 1개(7개)뿐이라 노이즈가 커서 제외 — 월간은 ~30개라 패턴으로 볼 만하다고 판단
@@ -254,7 +254,7 @@ public class ReportGenerationScheduler {
                     hourlyAvg.entrySet().stream()
                             .max(Map.Entry.comparingByValue())
                             .ifPresent(peak -> sb.append("- ").append(metric).append(": ")
-                                    .append(peak.getKey()).append("시경 평균 ").append(peak.getValue())
+                                    .append(peak.getKey()).append("시경 평균 ").append(round1(peak.getValue()))
                                     .append("로 가장 높음\n")));
             sb.append("이 시간대 패턴을 활용해, 값이 오르기 전 시간대에 미리 액추에이터를 가동하는 등의 예방적 조치를 개선 제안에 포함하세요.\n");
         }
@@ -262,7 +262,7 @@ public class ReportGenerationScheduler {
         if (actuatorCommands.setTemperatureChangeCount() > 0) {
             sb.append("\n## 액추에이터 조작 이력\n");
             sb.append("- 설정 온도 변경: 총 ").append(actuatorCommands.setTemperatureChangeCount())
-                    .append("회, 평균 설정값 ").append(actuatorCommands.avgSetTemperature()).append("\n");
+                    .append("회, 평균 설정값 ").append(round1(actuatorCommands.avgSetTemperature())).append("\n");
             actuatorCommands.executedByRatio().forEach((executedByType, ratio) ->
                     sb.append("- ").append(executedByType).append(" 조작 비율: ").append(ratio).append("%\n"));
         }
@@ -283,5 +283,9 @@ public class ReportGenerationScheduler {
                 .append("4) 지난 기간 대비 해석 5) 개선 제안. 제공된 수치만 사용하고 추측하지 마세요.");
 
         return sb.toString();
+    }
+
+    private String round1(double value) {
+        return String.format("%.1f", value);
     }
 }
