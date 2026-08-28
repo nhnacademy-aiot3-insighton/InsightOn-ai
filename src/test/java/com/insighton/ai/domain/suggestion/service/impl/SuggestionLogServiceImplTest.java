@@ -11,11 +11,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
-import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.GroupRole;
@@ -61,7 +60,7 @@ class SuggestionLogServiceImplTest {
     @Mock
     private JsonMapper jsonMapper;
     @Mock
-    private CoreClient coreClient;
+    private ActuatorCommandExecutor actuatorCommandExecutor;
 
     @InjectMocks
     private SuggestionLogServiceImpl suggestionLogService;
@@ -191,8 +190,8 @@ class SuggestionLogServiceImplTest {
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
-        verify(coreClient).executeActuatorCommand(42L,
-                new ActuatorCommandRequest("AIRCON", "power", "ON", CallerService.AI_SYSTEM));
+        verify(actuatorCommandExecutor).execute(42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON")), CallerService.AI_SYSTEM);
     }
 
     @Test
@@ -205,7 +204,7 @@ class SuggestionLogServiceImplTest {
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
-        verify(coreClient, never()).executeActuatorCommand(any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
     }
 
     @Test
@@ -218,7 +217,7 @@ class SuggestionLogServiceImplTest {
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(coreClient, never()).executeActuatorCommand(any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
     }
 
     @Test
@@ -239,7 +238,7 @@ class SuggestionLogServiceImplTest {
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(ForbiddenException.class);
 
-        verify(coreClient, never()).executeActuatorCommand(any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
     }
 
     @Test

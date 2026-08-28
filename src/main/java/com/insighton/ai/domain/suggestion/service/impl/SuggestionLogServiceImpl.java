@@ -1,10 +1,8 @@
 package com.insighton.ai.domain.suggestion.service.impl;
 
-import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
-import com.insighton.ai.adapter.client.dto.ActuatorAction;
-import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.common.exception.InvalidRequestException;
@@ -45,7 +43,7 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
     private final GroupAuthorizationService groupAuthorizationService;
     private final DashboardNotificationService dashboardNotificationService;
     private final JsonMapper jsonMapper;
-    private final CoreClient coreClient;
+    private final ActuatorCommandExecutor actuatorCommandExecutor;
 
     /**
      * 그룹 ID(필수), 위치 ID(선택) 조건에 따른 제안 로그 목록 조회.
@@ -167,10 +165,9 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
 
         ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
 
-        for (ActuatorAction action : actionPayload.actions()) {
-            coreClient.executeActuatorCommand(actionPayload.locationId(),
-                    ActuatorCommandRequest.of(action.actuatorType().name(), action.command(), action.commandValue(),
-                            CallerService.AI_SYSTEM));
+        if (!actionPayload.actions().isEmpty()) {
+            actuatorCommandExecutor.execute(actionPayload.locationId(), actionPayload.actions(),
+                    CallerService.AI_SYSTEM);
         }
 
         log.info("AI 제안 수락 - suggestionLogId:{}", suggestionLogId);
