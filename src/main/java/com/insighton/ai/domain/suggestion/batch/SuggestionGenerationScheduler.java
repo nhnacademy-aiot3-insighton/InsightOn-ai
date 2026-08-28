@@ -1,9 +1,8 @@
 package com.insighton.ai.domain.suggestion.batch;
 
+import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
-import com.insighton.ai.adapter.client.dto.ActuatorAction;
-import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
@@ -19,6 +18,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -36,6 +36,8 @@ import tools.jackson.databind.json.JsonMapper;
 @Slf4j
 @RequiredArgsConstructor
 public class SuggestionGenerationScheduler {
+
+    private final ActuatorCommandExecutor actuatorCommandExecutor;
 
     private static final Map<String, double[]> COMFORT_RANGE = Map.of(
             "temperature", new double[]{20.0, 26.0},
@@ -166,11 +168,8 @@ public class SuggestionGenerationScheduler {
         ));
 
         if (autoExecute) {
-            for (ActuatorAction action : actionPayload.actions()) {
-                coreClient.executeActuatorCommand(actionPayload.locationId(),
-                        ActuatorCommandRequest.of(action.actuatorType().name(), action.command(), action.commandValue(),
-                                CallerService.AI_SYSTEM));
-            }
+            actuatorCommandExecutor.execute(actionPayload.locationId(), actionPayload.actions(),
+                    CallerService.AI_SYSTEM);
         }
 
         log.info("{} 제안 생성 - locationId:{}, autoExecute:{}, 명령 수:{}", sourceLabel, locationId, autoExecute,
@@ -271,12 +270,20 @@ public class SuggestionGenerationScheduler {
             sb.append("- 습도: ").append(weather.forecastHumidity()).append("%\n");
         }
 
-        sb.append("\n## 조작 가능한 명령과 허용값 (이 목록 안에서만 선택)\n");
-        ACTUATOR_COMMANDS.forEach((type, commands) -> {
-            sb.append("- ").append(type).append("\n");
-            commands.forEach((command, allowedValues) ->
-                    sb.append("  - ").append(command).append(": ").append(allowedValues).append("\n"));
-        });
+        sb.append("\n## 조작 가능한 명령과 허용값 (이 위치에 실제로 있는 액추에이터만, 이 목록 안에서만 선택)\n");
+        Set<String> presentActuatorTypes = current.actuatorOnMinutes().keySet();
+        if (presentActuatorTypes.isEmpty()) {
+            sb.append("- 이 위치에는 조작 가능한 액추에이터가 없습니다. actions는 항상 빈 배열로 두세요.\n");
+        } else {
+            ACTUATOR_COMMANDS.forEach((type, commands) -> {
+                if (!presentActuatorTypes.contains(type)) {
+                    return;
+                }
+                sb.append("- ").append(type).append("\n");
+                commands.forEach((command, allowedValues) ->
+                        sb.append("  - ").append(command).append(": ").append(allowedValues).append("\n"));
+            });
+        }
 
         sb.append("\n---\n");
         sb.append("쾌적 기준값을 벗어났거나 벗어날 조짐이 보이면 actionNeeded=true로 하세요. ")

@@ -8,11 +8,12 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
-import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
+import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionDraft;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
@@ -34,6 +35,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
 class SuggestionGenerationSchedulerTest {
+
+    @Mock
+    private ActuatorCommandExecutor actuatorCommandExecutor;
 
     @Mock
     private HourlyTelemetryStatService hourlyTelemetryStatService;
@@ -60,7 +64,8 @@ class SuggestionGenerationSchedulerTest {
     @BeforeEach
     void setUp() {
         suggestionGenerationScheduler = new SuggestionGenerationScheduler(
-                hourlyTelemetryStatService, coreClient, suggestionLogService, chatClient, new JsonMapper());
+                actuatorCommandExecutor, hourlyTelemetryStatService, coreClient, suggestionLogService, chatClient,
+                new JsonMapper());
     }
 
     private void stubChatClient(SuggestionDraft draft) {
@@ -100,7 +105,7 @@ class SuggestionGenerationSchedulerTest {
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
         verify(suggestionLogService, never()).create(any());
-        verify(coreClient, never()).executeActuatorCommand(any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
     }
 
     @Test
@@ -120,7 +125,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(coreClient, never()).executeActuatorCommand(any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
     }
 
     @Test
@@ -141,11 +146,8 @@ class SuggestionGenerationSchedulerTest {
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isTrue();
 
-        ArgumentCaptor<ActuatorCommandRequest> actionCaptor = ArgumentCaptor.forClass(ActuatorCommandRequest.class);
-        verify(coreClient).executeActuatorCommand(eq(42L), actionCaptor.capture());
-        assertThat(actionCaptor.getValue().actuatorType()).isEqualTo("AIRCON");
-        assertThat(actionCaptor.getValue().command()).isEqualTo("power");
-        assertThat(actionCaptor.getValue().commandValue()).isEqualTo("ON");
+        verify(actuatorCommandExecutor).execute(eq(42L),
+                eq(List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))), eq(CallerService.AI_SYSTEM));
     }
 
     @Test
@@ -164,7 +166,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(coreClient, never()).executeActuatorCommand(any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
     }
 
     @Test
