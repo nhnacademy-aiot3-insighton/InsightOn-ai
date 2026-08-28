@@ -1,5 +1,6 @@
 package com.insighton.ai.common.exception;
 
+import com.insighton.ai.adapter.client.exception.ActuatorNotFoundException;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.domain.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.domain.notification.exception.DashboardNotificationNotFoundException;
@@ -19,7 +20,8 @@ public class GlobalExceptionHandler {
             ReportNotFoundException.class,
             SuggestionLogNotFoundException.class,
             DashboardNotificationNotFoundException.class,
-            EngineAlertNotFoundException.class
+            EngineAlertNotFoundException.class,
+            ActuatorNotFoundException.class
     })
     public ResponseEntity<ErrorResponse> handleNotFound(RuntimeException e) {
         return ResponseEntity
