@@ -57,4 +57,16 @@ public interface DashboardNotificationApi {
             @Parameter(description = "그룹 ID", example = "5", required = true,
                     schema = @Schema(type = "integer", format = "int64"))
             Long groupId);
+
+    @Operation(summary = "알림 전체 읽음 처리", description = "groupId 기준 안 읽은 알림을 전부 읽음 처리합니다. MANAGER 이상만 가능합니다.")
+    @ApiResponse(responseCode = "204", description = "처리 성공")
+    @ApiResponse(responseCode = "403", description = "그룹 비소속 또는 권한 부족")
+    ResponseEntity<Void> markAllAsRead(
+            @Parameter(description = "그룹 ID", example = "5", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            Long groupId,
+            @Parameter(description = "요청자 사용자 ID (Gateway 주입)", required = true,
+                    schema = @Schema(type = "integer", format = "int64"))
+            Long userId
+    );
 }

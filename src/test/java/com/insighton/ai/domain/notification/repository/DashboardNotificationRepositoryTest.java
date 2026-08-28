@@ -129,4 +129,39 @@ class DashboardNotificationRepositoryTest {
         assertThat(result.getTotalElements()).isEqualTo(5);
         assertThat(result.getTotalPages()).isEqualTo(3);
     }
+
+    @Test
+    void markAllAsRead_안읽은_알림을_전부_읽음_처리하고_처리_건수를_반환한다() {
+        persistNotification(5L, NotificationType.REPORT, "안읽음1", false);
+        persistNotification(5L, NotificationType.GATEWAY, "안읽음2", false);
+        persistNotification(5L, NotificationType.REPORT, "이미읽음", true);
+
+        int updated = notificationRepository.markAllAsRead(5L);
+        entityManager.clear();
+
+        assertThat(updated).isEqualTo(2);
+        Page<DashboardNotification> result = notificationRepository.search(5L, null, null, PageRequest.of(0, 20));
+        assertThat(result.getContent()).allMatch(DashboardNotification::isRead);
+    }
+
+    @Test
+    void markAllAsRead_다른_그룹의_알림은_건드리지_않는다() {
+        persistNotification(5L, NotificationType.REPORT, "그룹5 안읽음", false);
+        persistNotification(999L, NotificationType.REPORT, "그룹999 안읽음", false);
+
+        notificationRepository.markAllAsRead(5L);
+        entityManager.clear();
+
+        Page<DashboardNotification> other = notificationRepository.search(999L, null, null, PageRequest.of(0, 20));
+        assertThat(other.getContent()).extracting(DashboardNotification::isRead).containsExactly(false);
+    }
+
+    @Test
+    void markAllAsRead_안읽은_알림이_없으면_0을_반환한다() {
+        persistNotification(5L, NotificationType.REPORT, "이미읽음", true);
+
+        int updated = notificationRepository.markAllAsRead(5L);
+
+        assertThat(updated).isEqualTo(0);
+    }
 }

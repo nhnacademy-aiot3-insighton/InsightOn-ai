@@ -201,6 +201,36 @@ class DashboardNotificationServiceImplTest {
     }
 
     @Test
+    void markAllAsRead_성공() {
+        given(notificationRepository.markAllAsRead(5L)).willReturn(3);
+
+        int updated = dashboardNotificationService.markAllAsRead(5L, 100L);
+
+        assertThat(updated).isEqualTo(3);
+        verify(groupAuthorizationService).requireRole(5L, 100L, GroupRole.MANAGER);
+    }
+
+    @Test
+    void markAllAsRead_groupId가_null이면_예외() {
+        assertThatThrownBy(() -> dashboardNotificationService.markAllAsRead(null, 100L))
+                .isInstanceOf(InvalidRequestException.class);
+
+        verify(notificationRepository, never()).markAllAsRead(any());
+    }
+
+    @Test
+    void markAllAsRead_권한이_부족하면_예외() {
+        willThrow(new ForbiddenException("권한이 부족합니다."))
+                .given(groupAuthorizationService)
+                .requireRole(5L, 100L, GroupRole.MANAGER);
+
+        assertThatThrownBy(() -> dashboardNotificationService.markAllAsRead(5L, 100L))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(notificationRepository, never()).markAllAsRead(any());
+    }
+
+    @Test
     void deleteByGroup_성공() {
         dashboardNotificationService.deleteByGroup(5L);
 
