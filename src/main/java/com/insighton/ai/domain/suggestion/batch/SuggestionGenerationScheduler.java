@@ -256,18 +256,18 @@ public class SuggestionGenerationScheduler {
 
         if (weather != null) {
             sb.append("\n## 실외 환경 (현재)\n");
-            sb.append("- 기온: ").append(weather.temperature()).append("°C\n");
-            sb.append("- 오늘 예상 기온 범위: ").append(weather.minTemp()).append("°C ~ ")
-                    .append(weather.maxTemp()).append("°C\n");
-            sb.append("- 하늘상태: ").append(weather.skyStatus()).append("\n");
-            sb.append("- 강수: ").append(weather.precipitationType()).append("\n");
-            sb.append("- 미세먼지: ").append(weather.dustGrade()).append("\n");
+            sb.append("- 기온: ").append(orNone(weather.temperature())).append("°C\n");
+            sb.append("- 오늘 예상 기온 범위: ").append(orNone(weather.minTemp())).append("°C ~ ")
+                    .append(orNone(weather.maxTemp())).append("°C\n");
+            sb.append("- 하늘상태: ").append(orNone(weather.skyStatus())).append("\n");
+            sb.append("- 강수: ").append(orNone(weather.precipitationType())).append("\n");
+            sb.append("- 미세먼지: ").append(orNone(weather.dustGrade())).append("\n");
 
             sb.append("\n## 실외 환경 (1시간 후 예보)\n");
-            sb.append("- 기온: ").append(weather.forecastTemperature()).append("°C\n");
-            sb.append("- 하늘상태: ").append(weather.forecastSkyStatus()).append("\n");
-            sb.append("- 강수: ").append(weather.forecastPrecipitationType()).append("\n");
-            sb.append("- 습도: ").append(weather.forecastHumidity()).append("%\n");
+            sb.append("- 기온: ").append(orNone(weather.forecastTemperature())).append("°C\n");
+            sb.append("- 하늘상태: ").append(orNone(weather.forecastSkyStatus())).append("\n");
+            sb.append("- 강수: ").append(orNone(weather.forecastPrecipitationType())).append("\n");
+            sb.append("- 습도: ").append(orNone(weather.forecastHumidity())).append("%\n");
         }
 
         sb.append("\n## 조작 가능한 명령과 허용값 (이 위치에 실제로 있는 액추에이터만, 이 목록 안에서만 선택)\n");
@@ -297,6 +297,10 @@ public class SuggestionGenerationScheduler {
         sb.append("특별히 조치할 게 없으면 actionNeeded=false로 하고 나머지 필드는 비우세요.");
 
         return sb.toString();
+    }
+
+    private String orNone(Object value) {
+        return value != null ? String.valueOf(value) : "정보없음";
     }
 
     private String toJson(ActionPayload actionPayload) {
