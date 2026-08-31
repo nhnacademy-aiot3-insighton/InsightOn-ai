@@ -44,27 +44,27 @@ public class SuggestionLogController implements SuggestionLogApi {
     }
 
     @Override
-    @GetMapping("/{suggestionLogId}")
+    @GetMapping("/{suggestion-log-id}")
     public ResponseEntity<SuggestionLogResponse> getSuggestionLog(
-            @PathVariable Long suggestionLogId,
+            @PathVariable("suggestion-log-id") Long suggestionLogId,
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(suggestionLogService.findSuggestionLog(suggestionLogId, userId));
     }
 
     @Override
-    @PostMapping("/{suggestionLogId}/accept")
+    @PostMapping("/{suggestion-log-id}/accept")
     public ResponseEntity<SuggestionLogResponse> accept(
-            @PathVariable Long suggestionLogId,
+            @PathVariable("suggestion-log-id") Long suggestionLogId,
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(suggestionLogService.accept(suggestionLogId, userId));
     }
 
     @Override
-    @PostMapping("/{suggestionLogId}/reject")
+    @PostMapping("/{suggestion-log-id}/reject")
     public ResponseEntity<SuggestionLogResponse> reject(
-            @PathVariable Long suggestionLogId,
+            @PathVariable("suggestion-log-id") Long suggestionLogId,
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(suggestionLogService.reject(suggestionLogId, userId));

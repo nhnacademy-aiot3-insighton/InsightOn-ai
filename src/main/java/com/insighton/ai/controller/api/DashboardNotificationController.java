@@ -50,9 +50,9 @@ public class DashboardNotificationController implements DashboardNotificationApi
     }
 
     @Override
-    @PostMapping("/{dashboardNotificationId}/read")
+    @PostMapping("/{dashboard-notification-id}/read")
     public ResponseEntity<DashboardNotificationResponse> markAsRead(
-            @PathVariable Long dashboardNotificationId,
+            @PathVariable("dashboard-notification-id") Long dashboardNotificationId,
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(notificationService.markAsRead(dashboardNotificationId, userId));
