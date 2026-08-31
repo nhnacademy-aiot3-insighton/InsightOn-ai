@@ -65,4 +65,14 @@ public class DashboardNotificationController implements DashboardNotificationApi
         sseEmitterRegistry.sseRegister(groupId, emitter);
         return emitter;
     }
+
+    @Override
+    @PostMapping("/read-all")
+    public ResponseEntity<Void> markAllAsRead(
+            @RequestParam Long groupId,
+            @RequestHeader("X-User-Id") Long userId
+    ) {
+        notificationService.markAllAsRead(groupId, userId);
+        return ResponseEntity.noContent().build();
+    }
 }
