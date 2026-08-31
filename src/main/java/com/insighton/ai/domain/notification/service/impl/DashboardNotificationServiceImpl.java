@@ -160,6 +160,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
         log.info("대시보드 알람 일괄 삭제 - locationId:{}", locationId);
     }
 
+    @Transactional
     @Override
     public int markAllAsRead(Long groupId, Long userId) {
         if (groupId == null) {
