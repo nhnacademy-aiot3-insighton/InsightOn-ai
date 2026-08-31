@@ -46,9 +46,9 @@ public class ReportController implements ReportApi {
     }
 
     @Override
-    @GetMapping("/{reportId}")
+    @GetMapping("/{report-id}")
     public ResponseEntity<ReportDetailResponse> getReport(
-            @PathVariable Long reportId,
+            @PathVariable("report-id") Long reportId,
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(reportService.findReport(reportId, userId));

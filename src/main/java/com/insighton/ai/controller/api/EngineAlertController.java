@@ -45,9 +45,9 @@ public class EngineAlertController implements EngineAlertApi {
     }
 
     @Override
-    @GetMapping("/{engineAlertId}")
+    @GetMapping("/{engine-alert-id}")
     public ResponseEntity<EngineAlertResponse> getEngineAlert(
-            @PathVariable Long engineAlertId,
+            @PathVariable("engine-alert-id") Long engineAlertId,
             @RequestHeader("X-User-Id") Long userId
     ) {
         return ResponseEntity.ok(engineAlertService.getEngineAlert(engineAlertId, userId));
