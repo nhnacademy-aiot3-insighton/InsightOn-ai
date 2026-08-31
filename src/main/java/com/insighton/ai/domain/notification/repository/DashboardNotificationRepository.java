@@ -22,11 +22,11 @@ public interface DashboardNotificationRepository extends JpaRepository<Dashboard
             order by d.createdAt desc
             """,
             countQuery = """
-            select count(d) from DashboardNotification d
-            where d.groupId = :groupId
-            and (:isRead is null or d.isRead = :isRead)
-            and (:notificationType is null or d.notificationType = :notificationType)
-            """)
+                    select count(d) from DashboardNotification d
+                    where d.groupId = :groupId
+                    and (:isRead is null or d.isRead = :isRead)
+                    and (:notificationType is null or d.notificationType = :notificationType)
+                    """)
     Page<DashboardNotification> search(@Param("groupId") Long groupId,
                                        @Param("isRead") Boolean isRead,
                                        @Param("notificationType") NotificationType notificationType,
@@ -39,4 +39,13 @@ public interface DashboardNotificationRepository extends JpaRepository<Dashboard
     @Modifying
     @Query("delete from DashboardNotification d where d.locationId = :locationId")
     void deleteByLocationId(@Param("locationId") Long locationId);
+
+    @Modifying
+    @Query("""
+            update DashboardNotification d
+            set d.isRead = true
+            where d.groupId = :groupId
+            and d.isRead = false
+            """)
+    int markAllAsRead(@Param("groupId") Long groupId);
 }

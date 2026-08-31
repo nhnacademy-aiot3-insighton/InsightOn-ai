@@ -27,8 +27,8 @@ public interface DashboardNotificationService {
      * @return 필터링된 알림 페이지 응답
      */
     Page<DashboardNotificationResponse> getDashboardNotifications(Long groupId, Boolean isRead,
-                                                                   NotificationType notificationType,
-                                                                   Pageable pageable);
+                                                                  NotificationType notificationType,
+                                                                  Pageable pageable);
 
     /**
      * 알림 신규 생성 (engine_alerts/suggestion_logs/reports 생성과 같은 트랜잭션에서 호출되는 내부용).
@@ -50,4 +50,13 @@ public interface DashboardNotificationService {
     void deleteByGroup(Long groupId);
 
     void deleteByLocation(Long locationId);
+
+    /**
+     * 그룹 ID 기준 안 읽은 알림 전체를 읽음 처리. MANAGER 이상만 가능(개별 읽음 처리와 동일 권한).
+     *
+     * @param groupId 그룹 ID(필수)
+     * @param userId  요청자 유저 ID
+     * @return 실제로 읽음 처리된 알림 건수
+     */
+    int markAllAsRead(Long groupId, Long userId);
 }

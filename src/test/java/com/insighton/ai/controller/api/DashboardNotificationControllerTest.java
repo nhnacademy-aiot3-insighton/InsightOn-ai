@@ -134,6 +134,33 @@ class DashboardNotificationControllerTest {
     }
 
     @Test
+    void markAllAsRead_정상_처리시_204를_반환() throws Exception {
+        given(notificationService.markAllAsRead(5L, 100L)).willReturn(3);
+
+        mockMvc.perform(post("/api/v1/dashboard-notifications/read-all")
+                        .param("groupId", "5")
+                        .header("X-User-Id", "100"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void markAllAsRead_groupId가_없으면_400_반환() throws Exception {
+        mockMvc.perform(post("/api/v1/dashboard-notifications/read-all").header("X-User-Id", "100"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void markAllAsRead_권한이_없으면_403_반환() throws Exception {
+        given(notificationService.markAllAsRead(5L, 100L))
+                .willThrow(new ForbiddenException("MANAGER 이상 권한이 필요합니다."));
+
+        mockMvc.perform(post("/api/v1/dashboard-notifications/read-all")
+                        .param("groupId", "5")
+                        .header("X-User-Id", "100"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     void streamNotifications_정상_요청시_SSE_스트림을_시작() throws Exception {
         mockMvc.perform(get("/api/v1/dashboard-notifications/stream").param("groupId", "5")
                         .header("X-User-Id", "1"))

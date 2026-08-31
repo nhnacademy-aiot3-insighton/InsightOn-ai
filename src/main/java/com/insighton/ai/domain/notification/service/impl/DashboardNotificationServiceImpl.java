@@ -159,4 +159,20 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
         notificationRepository.deleteByLocationId(locationId);
         log.info("대시보드 알람 일괄 삭제 - locationId:{}", locationId);
     }
+
+    @Transactional
+    @Override
+    public int markAllAsRead(Long groupId, Long userId) {
+        if (groupId == null) {
+            throw new InvalidRequestException("groupId는 필수값입니다.");
+        }
+
+        groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);
+
+        int updated = notificationRepository.markAllAsRead(groupId);
+
+        log.info("알림 전체 읽음 처리 - groupId:{}, 처리 건수:{}", groupId, updated);
+
+        return updated;
+    }
 }
