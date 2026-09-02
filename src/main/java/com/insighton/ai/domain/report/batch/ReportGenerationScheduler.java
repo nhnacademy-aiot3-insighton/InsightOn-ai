@@ -81,10 +81,11 @@ public class ReportGenerationScheduler {
     private final ChatClient chatClient;
     private final FlowDraftRequester flowDraftRequester;
 
+    // TEST ONLY: 30분마다 도는 테스트용 cron. 원래 값 "0 0 0 * * MON" (매주 월요일 00:00)로 되돌리고 커밋할 것.
     /**
      * 매주 월요일 00:00 실행. 직전 월~일(7일)을 이번 기간, 그 전 7일을 비교 기준(지난 기간)
      */
-    @Scheduled(cron = "0 0 0 * * MON", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 */30 * * * *", zone = "Asia/Seoul")
     @SchedulerLock(name = "weeklyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateWeeklyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
@@ -93,10 +94,11 @@ public class ReportGenerationScheduler {
                 now.minusWeeks(2), now.minusWeeks(1).minusHours(1));
     }
 
+    // TEST ONLY: 30분마다 도는 테스트용 cron. 원래 값 "0 0 0 1 * *" (매월 1일 00:00)로 되돌리고 커밋할 것.
     /**
      * 매월 1일 00:00 실행. 직전 달 1일~말일을 이번 기간, 그 전달을 비교 기준(지난 기간)
      */
-    @Scheduled(cron = "0 0 0 1 * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 */30 * * * *", zone = "Asia/Seoul")
     @SchedulerLock(name = "monthlyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateMonthlyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
