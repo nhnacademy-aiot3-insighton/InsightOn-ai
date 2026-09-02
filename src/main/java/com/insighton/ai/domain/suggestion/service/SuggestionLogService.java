@@ -1,5 +1,6 @@
 package com.insighton.ai.domain.suggestion.service;
 
+import com.insighton.ai.domain.suggestion.dto.RejectionPattern;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
@@ -26,4 +27,6 @@ public interface SuggestionLogService {
     void deleteByLocation(Long locationId);
 
     SuggestionSummary summarizePeriod(Long locationId, OffsetDateTime from, OffsetDateTime to);
+
+    List<RejectionPattern> findRejectionPatterns(Long locationId);
 }

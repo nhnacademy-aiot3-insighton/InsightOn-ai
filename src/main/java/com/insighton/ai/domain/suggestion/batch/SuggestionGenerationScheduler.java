@@ -7,6 +7,7 @@ import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.dto.WeatherResponse;
+import com.insighton.ai.domain.suggestion.dto.RejectionPattern;
 import com.insighton.ai.domain.suggestion.dto.SuggestionDraft;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.event.AiSuggestionActionEvent;
@@ -112,7 +113,7 @@ public class SuggestionGenerationScheduler {
         LocationResponse location = coreClient.getLocation(locationId);
         WeatherResponse weather = tryGetWeather(location.groupId());
 
-        String prompt = buildSuggestionPrompt(current, previous, weather);
+        String prompt = buildSuggestionPrompt(current, previous, weather, locationId);
         SuggestionDraft draft = chatClient.prompt().user(prompt).call().entity(SuggestionDraft.class);
 
         applyDraft(locationId, location, draft, "정기");
@@ -192,7 +193,7 @@ public class SuggestionGenerationScheduler {
      * 재집계된 데이터를 LLM 프롬프트 텍스트로 조립한다. 정기 스케줄 전용으로, 직전 시간 대비 변화를 추가로 보여준 뒤 공통 컨텍스트를 이어붙인다.
      */
     private String buildSuggestionPrompt(PeriodTelemetrySummary current, PeriodTelemetrySummary previous,
-                                         WeatherResponse weather) {
+                                         WeatherResponse weather, Long locationId) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("당신은 스마트 오피스의 실내 환경을 모니터링하고 액추에이터 조작을 제안하는 AI입니다.\n");
@@ -211,7 +212,7 @@ public class SuggestionGenerationScheduler {
             sb.append("\n");
         }
 
-        sb.append(buildCommonContext(current, weather));
+        sb.append(buildCommonContext(current, weather, locationId));
         return sb.toString();
     }
 
@@ -227,15 +228,15 @@ public class SuggestionGenerationScheduler {
                 .append(event.metricKey()).append(" = ").append(event.value()).append("\n");
         sb.append("아래는 최근 집계된 실내 환경 데이터입니다. 이 상황을 보고 조치가 필요한지 판단하세요.\n\n");
 
-        sb.append(buildCommonContext(current, weather));
+        sb.append(buildCommonContext(current, weather, event.locationId()));
         return sb.toString();
     }
 
     /**
-     * 정기/이벤트 두 프롬프트가 공통으로 쓰는 컨텍스트(쾌적 기준값, 실내 환경, 액추에이터 가동, 날씨, 조작 가능 명령, 출력 지침)를 조립한다. 쾌적 기준값/조작 가능 명령 목록은 실제 존재하는 것만
-     * 명시해 회사마다 다른 센서/액추에이터 구성에 그대로 대응.
+     * 정기/이벤트 두 프롬프트가 공통으로 쓰는 컨텍스트(쾌적 기준값, 실내 환경, 액추에이터 가동, 날씨, 조작 가능 명령, 거절 패턴, 출력 지침)를 조립한다. 쾌적 기준값/조작 가능 명령 목록은
+     * 실제 존재하는 것만 명시해 회사마다 다른 센서/액추에이터 구성에 그대로 대응.
      */
-    private String buildCommonContext(PeriodTelemetrySummary current, WeatherResponse weather) {
+    private String buildCommonContext(PeriodTelemetrySummary current, WeatherResponse weather, Long locationId) {
         StringBuilder sb = new StringBuilder();
 
         sb.append("## 쾌적 기준값 (알려진 지표만)\n");
@@ -283,6 +284,15 @@ public class SuggestionGenerationScheduler {
                 commands.forEach((command, allowedValues) ->
                         sb.append("  - ").append(command).append(": ").append(allowedValues).append("\n"));
             });
+        }
+
+        List<RejectionPattern> rejectionPatterns = suggestionLogService.findRejectionPatterns(locationId);
+        if (!rejectionPatterns.isEmpty()) {
+            sb.append("\n## 참고 - 최근 자주 거절된 조작 (참고용 신호이며, 현재 상황이 다르면 무시해도 됨)\n");
+            rejectionPatterns.forEach(p ->
+                    sb.append("- ").append(p.actuatorType()).append(" ").append(p.command()).append("=")
+                            .append(p.commandValue()).append(": 최근 ").append(p.totalCount()).append("건 중 ")
+                            .append(p.rejectedCount()).append("건 거절됨\n"));
         }
 
         sb.append("\n---\n");

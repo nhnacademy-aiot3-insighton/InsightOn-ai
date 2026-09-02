@@ -1,5 +1,6 @@
 package com.insighton.ai.domain.telemetrystats.service;
 
+import com.insighton.ai.domain.telemetrystats.dto.HourlyPeakPattern;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatResponse;
 import com.insighton.ai.domain.telemetrystats.dto.PeriodTelemetrySummary;
@@ -70,4 +71,13 @@ public interface HourlyTelemetryStatService {
      * @return distinct location_id 목록
      */
     List<Long> findDistinctLocationIds(OffsetDateTime from, OffsetDateTime to);
+
+    /**
+     * summarizePeriod()가 반환한 hourlyAvgByMetric에서, 그 지표의 기간 전체 평균(metricsAvg) 대비 특정 시간대 평균이 유의미하게(±threshold
+     * 이상) 높은 지표·시간대만 뽑아낸다. 사소한 요동까지 패턴으로 잡지 않기 위함.
+     *
+     * @param summary summarizePeriod()가 반환한 기간 재집계 결과
+     * @return 유의미한 피크가 있는 지표만(없으면 빈 리스트)
+     */
+    List<HourlyPeakPattern> extractPeakPatterns(PeriodTelemetrySummary summary);
 }
