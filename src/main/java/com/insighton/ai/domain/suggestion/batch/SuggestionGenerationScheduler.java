@@ -3,6 +3,7 @@ package com.insighton.ai.domain.suggestion.batch;
 import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.CoreClient;
 import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.ACTUATOR_COMMANDS;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.COMFORT_RANGE;
 
 import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
@@ -20,7 +21,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,13 +41,6 @@ import tools.jackson.databind.json.JsonMapper;
 public class SuggestionGenerationScheduler {
 
     private final ActuatorCommandExecutor actuatorCommandExecutor;
-
-    private static final Map<String, double[]> COMFORT_RANGE = Map.of(
-            "temperature", new double[]{20.0, 26.0},
-            "co2", new double[]{0.0, 1000.0},
-            "humidity", new double[]{40.0, 60.0}
-    );
-
 
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final CoreClient coreClient;

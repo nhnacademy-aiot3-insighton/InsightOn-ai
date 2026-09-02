@@ -194,11 +194,14 @@ public class ReportGenerationScheduler {
 
         Set<String> presentActuatorTypes = current.actuatorOnMinutes().keySet();
         if (businessHourPatterns.isEmpty() || presentActuatorTypes.isEmpty()) {
+            log.info("flow 자동화 판단 스킵 - locationId:{}, 업무시간 내 피크 수:{}, 보유 액추에이터:{}",
+                    locationId, businessHourPatterns.size(), presentActuatorTypes);
             return;
         }
 
         String prompt = buildFlowActionPrompt(businessHourPatterns, presentActuatorTypes);
         FlowActionDecisions result = chatClient.prompt().user(prompt).call().entity(FlowActionDecisions.class);
+        log.info("flow 자동화 LLM 판단 결과 - locationId:{}, 판단 수:{}", locationId, result.decisions().size());
 
         Map<String, HourlyPeakPattern> patternsByMetric = businessHourPatterns.stream()
                 .collect(Collectors.toMap(HourlyPeakPattern::metric, Function.identity(), (a, b) -> a));
@@ -208,6 +211,10 @@ public class ReportGenerationScheduler {
             boolean actuatorPresent = decision.actuatorType() != null
                     && presentActuatorTypes.contains(decision.actuatorType().name());
             if (!decision.automationRecommended() || pattern == null || !actuatorPresent) {
+                log.info("flow 자동화 대상 제외 - locationId:{}, metric:{}, automationRecommended:{}, "
+                                + "actuatorType:{}, patternMatch:{}, actuatorPresent:{}",
+                        locationId, decision.metric(), decision.automationRecommended(),
+                        decision.actuatorType(), pattern != null, actuatorPresent);
                 continue;
             }
             ActuatorAction action = new ActuatorAction(decision.actuatorType(), decision.command(),

@@ -16,6 +16,6 @@ public interface RuleEngineClient {
      * key가 필요 없다).
      */
     @PostMapping("/flows")
-    FlowDraftResponse createFlowDraft(@RequestParam("groupId") Long groupId,
-                                      @RequestBody FlowDraftCreateRequest request);
+    FlowDraftResponse createAiDraft(@RequestParam("groupId") Long groupId,
+                                    @RequestBody FlowDraftCreateRequest request);
 }

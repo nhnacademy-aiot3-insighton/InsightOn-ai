@@ -25,6 +25,16 @@ public final class ActuatorCommandVocabulary {
             )
     );
 
+    /**
+     * 지표별 쾌적 기준값(최소~최대). SuggestionGenerationScheduler와 ScheduledActuatorTaskExecutionScheduler가
+     * 공통으로 참조 - ACTUATOR_COMMANDS와 같은 이유(각자 선언 시 드리프트 위험)로 여기 둔다.
+     */
+    public static final Map<String, double[]> COMFORT_RANGE = Map.of(
+            "temperature", new double[]{20.0, 26.0},
+            "co2", new double[]{0.0, 1000.0},
+            "humidity", new double[]{40.0, 60.0}
+    );
+
     private ActuatorCommandVocabulary() {
     }
 }
