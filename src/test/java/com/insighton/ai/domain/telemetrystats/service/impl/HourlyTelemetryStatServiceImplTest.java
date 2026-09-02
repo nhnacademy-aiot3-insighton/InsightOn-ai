@@ -15,6 +15,7 @@ import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.exception.InvalidRequestException;
+import com.insighton.ai.domain.telemetrystats.dto.HourlyPeakPattern;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatResponse;
 import com.insighton.ai.domain.telemetrystats.dto.PeriodTelemetrySummary;
@@ -279,6 +280,40 @@ class HourlyTelemetryStatServiceImplTest {
 
         assertThatThrownBy(() -> hourlyTelemetryStatService.summarizePeriod(42L, null, null))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void extractPeakPatterns_기간_평균_대비_15퍼센트_이상_튀는_시간대만_추출한다() {
+        PeriodTelemetrySummary summary = new PeriodTelemetrySummary(42L, null, null,
+                Map.of("temperature", 24.0), Map.of(), Map.of(), Map.of(),
+                Map.of("temperature", Map.of(3, 21.0, 14, 30.0)));
+
+        List<HourlyPeakPattern> patterns = hourlyTelemetryStatService.extractPeakPatterns(summary);
+
+        assertThat(patterns).containsExactly(
+                new HourlyPeakPattern("temperature", 14, 30.0, 24.0, 25.0));
+    }
+
+    @Test
+    void extractPeakPatterns_15퍼센트_미만이면_제외된다() {
+        PeriodTelemetrySummary summary = new PeriodTelemetrySummary(42L, null, null,
+                Map.of("temperature", 24.0), Map.of(), Map.of(), Map.of(),
+                Map.of("temperature", Map.of(14, 27.0)));
+
+        List<HourlyPeakPattern> patterns = hourlyTelemetryStatService.extractPeakPatterns(summary);
+
+        assertThat(patterns).isEmpty();
+    }
+
+    @Test
+    void extractPeakPatterns_기간_평균이_0이면_나눗셈_없이_제외된다() {
+        PeriodTelemetrySummary summary = new PeriodTelemetrySummary(42L, null, null,
+                Map.of("illumination", 0.0), Map.of(), Map.of(), Map.of(),
+                Map.of("illumination", Map.of(14, 10.0)));
+
+        List<HourlyPeakPattern> patterns = hourlyTelemetryStatService.extractPeakPatterns(summary);
+
+        assertThat(patterns).isEmpty();
     }
 
     @Test

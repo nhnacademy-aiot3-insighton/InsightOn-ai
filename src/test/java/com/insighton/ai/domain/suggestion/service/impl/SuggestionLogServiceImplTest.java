@@ -190,7 +190,7 @@ class SuggestionLogServiceImplTest {
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
-        verify(actuatorCommandExecutor).execute(42L,
+        verify(actuatorCommandExecutor).execute(5L, 42L,
                 List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON")), CallerService.AI_SYSTEM);
     }
 
@@ -204,7 +204,7 @@ class SuggestionLogServiceImplTest {
         SuggestionLogResponse result = suggestionLogService.accept(1L, 100L);
 
         assertThat(result.isAccepted()).isTrue();
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test
@@ -217,7 +217,7 @@ class SuggestionLogServiceImplTest {
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(IllegalArgumentException.class);
 
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test
@@ -238,7 +238,7 @@ class SuggestionLogServiceImplTest {
         assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
                 .isInstanceOf(ForbiddenException.class);
 
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test

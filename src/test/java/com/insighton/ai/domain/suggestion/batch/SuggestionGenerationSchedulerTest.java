@@ -105,7 +105,7 @@ class SuggestionGenerationSchedulerTest {
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
         verify(suggestionLogService, never()).create(any());
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test
@@ -125,7 +125,26 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
+    }
+
+    @Test
+    void generateOneSuggestion_거절_패턴_조회가_실패해도_제안_생성은_계속된다() {
+        given(hourlyTelemetryStatService.summarizePeriod(42L, CURRENT_HOUR, CURRENT_HOUR))
+                .willReturn(summary(Map.of("temperature", 29.0)));
+        given(hourlyTelemetryStatService.summarizePeriod(42L, CURRENT_HOUR.minusHours(1), CURRENT_HOUR.minusHours(1)))
+                .willReturn(summary(Map.of()));
+        given(coreClient.getLocation(42L)).willReturn(new LocationResponse(42L, "사무실1", 5L,
+                AutoControlMode.SUGGESTION));
+        given(coreClient.getWeather(5L)).willReturn(null);
+        given(suggestionLogService.findRejectionPatterns(42L))
+                .willThrow(new IllegalArgumentException("액추에이터 명령 JSON 파싱 실패"));
+        stubChatClient(new SuggestionDraft(true, "더워요", "에어컨을 켜세요",
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))));
+
+        suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
+
+        verify(suggestionLogService).create(any());
     }
 
     @Test
@@ -146,7 +165,7 @@ class SuggestionGenerationSchedulerTest {
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isTrue();
 
-        verify(actuatorCommandExecutor).execute(eq(42L),
+        verify(actuatorCommandExecutor).execute(eq(5L), eq(42L),
                 eq(List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))), eq(CallerService.AI_SYSTEM));
     }
 
@@ -166,7 +185,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test

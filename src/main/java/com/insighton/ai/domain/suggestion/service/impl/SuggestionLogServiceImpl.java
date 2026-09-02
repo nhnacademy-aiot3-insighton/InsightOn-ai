@@ -3,12 +3,14 @@ package com.insighton.ai.domain.suggestion.service.impl;
 import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
+import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.GroupRole;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.service.DashboardNotificationService;
+import com.insighton.ai.domain.suggestion.dto.RejectionPattern;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
@@ -20,10 +22,13 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.Validator;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +49,10 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
     private final DashboardNotificationService dashboardNotificationService;
     private final JsonMapper jsonMapper;
     private final ActuatorCommandExecutor actuatorCommandExecutor;
+
+    private static final int REJECTION_PATTERN_LOOKBACK = 30;
+    private static final int REJECTION_PATTERN_MIN_SAMPLES = 8;
+    private static final double REJECTION_PATTERN_MIN_RATE = 0.7;
 
     /**
      * 그룹 ID(필수), 위치 ID(선택) 조건에 따른 제안 로그 목록 조회.
@@ -166,8 +175,8 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
 
         if (!actionPayload.actions().isEmpty()) {
-            actuatorCommandExecutor.execute(actionPayload.locationId(), actionPayload.actions(),
-                    CallerService.AI_SYSTEM);
+            actuatorCommandExecutor.execute(suggestionLog.getGroupId(), actionPayload.locationId(),
+                    actionPayload.actions(), CallerService.AI_SYSTEM);
         }
 
         log.info("AI 제안 수락 - suggestionLogId:{}", suggestionLogId);
@@ -231,6 +240,40 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
                 s.getIsAccepted() == null).count();
 
         return new SuggestionSummary(totalCount, acceptedCount, rejectedCount, pendingCount);
+    }
+
+    @Override
+    public List<RejectionPattern> findRejectionPatterns(Long locationId) {
+        List<SuggestionLog> recent = suggestionLogRepository.findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(
+                locationId,
+                PageRequest.of(0, REJECTION_PATTERN_LOOKBACK));
+
+        Map<List<String>, long[]> stats = new LinkedHashMap<>();
+
+        for (SuggestionLog suggestion : recent) {
+            ActionPayload payload = parseActionPayload(suggestion.getActionPayload());
+
+            for (ActuatorAction action : payload.actions()) {
+                if ("SET_TEMPERATURE".equals(action.command())) {
+                    continue;
+                }
+                List<String> key = List.of(action.actuatorType().name(), action.command(), action.commandValue());
+
+                long[] counter = stats.computeIfAbsent(key, k -> new long[2]);
+                counter[1]++;
+
+                if (Boolean.FALSE.equals(suggestion.getIsAccepted())) {
+                    counter[0]++;
+                }
+            }
+        }
+
+        return stats.entrySet().stream()
+                .filter(e -> e.getValue()[1] >= REJECTION_PATTERN_MIN_SAMPLES
+                        && (double) e.getValue()[0] / e.getValue()[1] >= REJECTION_PATTERN_MIN_RATE)
+                .map(e -> new RejectionPattern(e.getKey().get(0), e.getKey().get(1), e.getKey().get(2),
+                        e.getValue()[0], e.getValue()[1]))
+                .toList();
     }
 
     private ActionPayload parseActionPayload(String actionPayloadJson) {

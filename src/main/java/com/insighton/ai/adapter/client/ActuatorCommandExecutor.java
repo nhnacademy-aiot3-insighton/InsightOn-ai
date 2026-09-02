@@ -17,11 +17,11 @@ public class ActuatorCommandExecutor {
 
     private final CoreClient coreClient;
 
-    public void execute(Long locationId, List<ActuatorAction> actions, CallerService callerService) {
+    public void execute(Long groupId, Long locationId, List<ActuatorAction> actions, CallerService callerService) {
 
         for (ActuatorAction action : actions) {
             try {
-                coreClient.executeActuatorCommand(locationId,
+                coreClient.executeActuatorCommand(groupId, locationId,
                         ActuatorCommandRequest.of(action.actuatorType().name(), action.command(), action.commandValue(),
                                 callerService));
             } catch (FeignException.NotFound e) {

@@ -17,7 +17,9 @@ public record ActuatorCommandRequest(
         String commandValue,
         CallerService callerService
 ) {
-    private static final Map<String, String> COMMAND_TO_CORE_STATE_KEY = Map.of(
+    // Rule Engine의 ACTUATOR_CONTROL 노드도 이 짧은 키(power/mode/temperature)를 기대하므로
+    // FlowDraftRequester가 그대로 재사용할 수 있게 public으로 둔다.
+    public static final Map<String, String> COMMAND_TO_CORE_STATE_KEY = Map.of(
             "POWER_STATUS", "power",
             "OPERATION_MODE", "mode",
             "SET_TEMPERATURE", "temperature"
