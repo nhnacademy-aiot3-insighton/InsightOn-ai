@@ -1,5 +1,7 @@
 package com.insighton.ai.domain.report.batch;
 
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.ACTUATOR_COMMANDS;
+
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.FlowDraftRequester;
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
@@ -60,23 +62,6 @@ public class ReportGenerationScheduler {
     private static final int BUSINESS_HOUR_START = 9;
     private static final int BUSINESS_HOUR_END = 17;
 
-    // Core com.insighton.core.domain.actuators.policy의 CommandType/CommandValueRule 확정값과 동일하게 유지할 것
-    // (SuggestionGenerationScheduler.ACTUATOR_COMMANDS와 같은 값 - flow 초안 판단용 프롬프트에도 같은 허용 어휘가 필요해 중복 선언)
-    private static final Map<String, Map<String, String>> ACTUATOR_COMMANDS = Map.of(
-            "AIRCON", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "COOL, DRY, FAN, AUTO",
-                    "SET_TEMPERATURE", "18~30 사이 숫자"
-            ),
-            "AIR_PURIFIER", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "AUTO, SLEEP, TURBO"
-            ),
-            "VENTILATION_FAN", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "LOW, MID, HIGH"
-            )
-    );
 
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final EngineAlertService engineAlertService;

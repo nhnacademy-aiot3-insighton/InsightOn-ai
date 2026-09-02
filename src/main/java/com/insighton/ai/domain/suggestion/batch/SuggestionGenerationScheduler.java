@@ -2,6 +2,8 @@ package com.insighton.ai.domain.suggestion.batch;
 
 import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.adapter.client.CoreClient;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.ACTUATOR_COMMANDS;
+
 import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.CallerService;
@@ -46,22 +48,6 @@ public class SuggestionGenerationScheduler {
             "humidity", new double[]{40.0, 60.0}
     );
 
-    // Core com.insighton.core.domain.actuators.policy의 CommandType/CommandValueRule 확정값과 동일하게 유지할 것
-    private static final Map<String, Map<String, String>> ACTUATOR_COMMANDS = Map.of(
-            "AIRCON", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "COOL, DRY, FAN, AUTO",
-                    "SET_TEMPERATURE", "18~30 사이 숫자"
-            ),
-            "AIR_PURIFIER", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "AUTO, SLEEP, TURBO"
-            ),
-            "VENTILATION_FAN", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "LOW, MID, HIGH"
-            )
-    );
 
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final CoreClient coreClient;
