@@ -3,6 +3,7 @@ package com.insighton.ai.controller.api;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
@@ -11,9 +12,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.insighton.ai.adapter.client.GroupAuthorizationService;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
+import com.insighton.ai.domain.chatbot.dto.ChatHistoryMessage;
 import com.insighton.ai.domain.chatbot.dto.ChatRequest;
 import com.insighton.ai.domain.chatbot.service.ChatbotService;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -105,5 +108,30 @@ class ChatControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new ChatRequest("안녕"))))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getHistory_정상_요청시_이력_목록_반환() throws Exception {
+        given(chatbotService.getHistory(5L, 100L)).willReturn(List.of(
+                new ChatHistoryMessage("USER", "안녕"),
+                new ChatHistoryMessage("ASSISTANT", "안녕하세요")));
+
+        mockMvc.perform(get("/api/v1/chat")
+                        .param("groupId", "5")
+                        .header("X-User-Id", "100"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        [
+                            {"role":"USER","content":"안녕"},
+                            {"role":"ASSISTANT","content":"안녕하세요"}
+                        ]
+                        """));
+    }
+
+    @Test
+    void getHistory_groupId가_없으면_400_반환() throws Exception {
+        mockMvc.perform(get("/api/v1/chat")
+                        .header("X-User-Id", "100"))
+                .andExpect(status().isBadRequest());
     }
 }

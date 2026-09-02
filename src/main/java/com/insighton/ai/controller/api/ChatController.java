@@ -1,10 +1,13 @@
 package com.insighton.ai.controller.api;
 
 import com.insighton.ai.controller.swagger.ChatApi;
+import com.insighton.ai.domain.chatbot.dto.ChatHistoryMessage;
 import com.insighton.ai.domain.chatbot.dto.ChatRequest;
 import com.insighton.ai.domain.chatbot.service.ChatbotService;
 import java.io.IOException;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -20,6 +23,13 @@ import reactor.core.Disposable;
 public class ChatController implements ChatApi {
 
     private final ChatbotService chatbotService;
+
+    @Override
+    @GetMapping
+    public List<ChatHistoryMessage> getHistory(@RequestParam Long groupId,
+                                               @RequestHeader("X-User-Id") Long userId) {
+        return chatbotService.getHistory(groupId, userId);
+    }
 
     @Override
     @PostMapping
