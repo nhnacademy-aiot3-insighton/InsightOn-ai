@@ -7,6 +7,7 @@ import com.insighton.ai.adapter.client.dto.FlowDraftLinkRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftNodeRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftResponse;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyPeakPattern;
+import feign.FeignException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,11 +52,16 @@ public class FlowDraftRequester {
                     ),
                     List.of(new FlowDraftLinkRequest("schedule", "actuatorControl", "out", "in"))
             );
+            log.info("Rule Engine flow 초안 생성 요청 - locationId:{}, metric:{}, cron:{}, actuatorType:{}, command:{}, commandValue:{}",
+                    locationId, pattern.metric(), cron, action.actuatorType(), command, action.commandValue());
 
-            FlowDraftResponse response = ruleEngineClient.createFlowDraft(groupId, request);
+            FlowDraftResponse response = ruleEngineClient.createAiDraft(groupId, request);
 
-            log.info("Rule Engine flow 초안 생성 요청 완료 - flowId:{}, locationId:{}, metric:{}",
-                    response.flowId(), locationId, pattern.metric());
+            log.info("Rule Engine flow 초안 생성 요청 완료 - flowId:{}, locationId:{}, metric:{}, status:{}",
+                    response.flowId(), locationId, pattern.metric(), response.status());
+        } catch (FeignException e) {
+            log.warn("Rule Engine flow 초안 생성 요청 실패, 건너뜀 - locationId:{}, metric:{}, status:{}, body:{}",
+                    locationId, pattern.metric(), e.status(), e.contentUTF8(), e);
         } catch (Exception e) {
             log.warn("Rule Engine flow 초안 생성 요청 실패, 건너뜀 - locationId:{}, metric:{}",
                     locationId, pattern.metric(), e);

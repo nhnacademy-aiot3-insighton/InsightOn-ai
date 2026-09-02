@@ -36,7 +36,7 @@ class FlowDraftRequesterTest {
 
     @Test
     void requestDraft_요청을_올바르게_조립해서_호출한다() {
-        given(ruleEngineClient.createFlowDraft(anyLong(), any()))
+        given(ruleEngineClient.createAiDraft(anyLong(), any()))
                 .willReturn(new FlowDraftResponse(128L, "INACTIVE"));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
         ActuatorAction action = new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON");
@@ -45,7 +45,7 @@ class FlowDraftRequesterTest {
 
         ArgumentCaptor<Long> groupIdCaptor = ArgumentCaptor.forClass(Long.class);
         ArgumentCaptor<FlowDraftCreateRequest> requestCaptor = ArgumentCaptor.forClass(FlowDraftCreateRequest.class);
-        verify(ruleEngineClient).createFlowDraft(groupIdCaptor.capture(), requestCaptor.capture());
+        verify(ruleEngineClient).createAiDraft(groupIdCaptor.capture(), requestCaptor.capture());
 
         assertThat(groupIdCaptor.getValue()).isEqualTo(5L);
 
@@ -66,7 +66,7 @@ class FlowDraftRequesterTest {
 
     @Test
     void requestDraft_피크시간이_0시면_전날_23시_45분_SUN_THU_cron으로_조립된다() {
-        given(ruleEngineClient.createFlowDraft(anyLong(), any()))
+        given(ruleEngineClient.createAiDraft(anyLong(), any()))
                 .willReturn(new FlowDraftResponse(1L, "INACTIVE"));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 0, 1100.0, 800.0, 37.5);
         ActuatorAction action = new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON");
@@ -74,7 +74,7 @@ class FlowDraftRequesterTest {
         flowDraftRequester.requestDraft(5L, 42L, 231L, REPORT_TITLE, pattern, action);
 
         ArgumentCaptor<FlowDraftCreateRequest> requestCaptor = ArgumentCaptor.forClass(FlowDraftCreateRequest.class);
-        verify(ruleEngineClient).createFlowDraft(anyLong(), requestCaptor.capture());
+        verify(ruleEngineClient).createAiDraft(anyLong(), requestCaptor.capture());
 
         assertThat(requestCaptor.getValue().nodes().get(0).configuration())
                 .containsEntry("cron", "0 45 23 * * SUN-THU");
@@ -82,7 +82,7 @@ class FlowDraftRequesterTest {
 
     @Test
     void requestDraft_reportId가_다르면_같은_위치_같은_지표라도_이름이_달라진다() {
-        given(ruleEngineClient.createFlowDraft(anyLong(), any()))
+        given(ruleEngineClient.createAiDraft(anyLong(), any()))
                 .willReturn(new FlowDraftResponse(1L, "INACTIVE"));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
         ActuatorAction action = new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON");
@@ -91,7 +91,7 @@ class FlowDraftRequesterTest {
         flowDraftRequester.requestDraft(5L, 42L, 299L, "9월 월간 3층 회의실 리포트", pattern, action);
 
         ArgumentCaptor<FlowDraftCreateRequest> requestCaptor = ArgumentCaptor.forClass(FlowDraftCreateRequest.class);
-        verify(ruleEngineClient, times(2)).createFlowDraft(anyLong(), requestCaptor.capture());
+        verify(ruleEngineClient, times(2)).createAiDraft(anyLong(), requestCaptor.capture());
 
         assertThat(requestCaptor.getAllValues())
                 .extracting(FlowDraftCreateRequest::name)
@@ -102,7 +102,7 @@ class FlowDraftRequesterTest {
 
     @Test
     void requestDraft_RuleEngine_호출이_실패해도_예외를_던지지_않는다() {
-        given(ruleEngineClient.createFlowDraft(anyLong(), any()))
+        given(ruleEngineClient.createAiDraft(anyLong(), any()))
                 .willThrow(new RuntimeException("Rule Engine 연결 실패"));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
         ActuatorAction action = new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON");
