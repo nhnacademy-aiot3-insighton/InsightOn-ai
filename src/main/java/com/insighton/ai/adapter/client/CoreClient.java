@@ -44,10 +44,12 @@ public interface CoreClient {
 
 
     /**
-     * AI가 액츄에이터 조작 시 호출할 API ex) 에어컨 ON / OFF
+     * AI가 액츄에이터 조작 시 호출할 API ex) 에어컨 ON / OFF. groupId+locationId 소유권 검증이 Core 쪽에 추가되면서
+     * 경로에 groupId가 필요해짐(기존 "/locations/{location-id}/actuators/state"는 더 이상 존재하지 않음).
      */
-    @PutMapping("/locations/{location-id}/actuators/state")
-    void executeActuatorCommand(@PathVariable("location-id") Long locationId,
+    @PutMapping("/groups/{group-id}/locations/{location-id}/actuators/state")
+    void executeActuatorCommand(@PathVariable("group-id") Long groupId,
+                                @PathVariable("location-id") Long locationId,
                                 @RequestBody ActuatorCommandRequest request);
 
 

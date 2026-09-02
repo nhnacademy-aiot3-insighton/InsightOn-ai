@@ -31,7 +31,7 @@ public interface SuggestionLogRepository extends JpaRepository<SuggestionLog, Lo
             and (cast(:to as java.time.OffsetDateTime) is null or s.createdAt <= :to)
             """)
     long count(@Param("groupId") Long groupId, @Param("locationId") Long locationId,
-              @Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
+               @Param("from") OffsetDateTime from, @Param("to") OffsetDateTime to);
 
     @Modifying
     @Query("delete from SuggestionLog s where s.groupId = :groupId")
@@ -51,4 +51,6 @@ public interface SuggestionLogRepository extends JpaRepository<SuggestionLog, Lo
     List<SuggestionLog> searchByPeriod(@Param("locationId") Long locationId,
                                        @Param("from") OffsetDateTime from,
                                        @Param("to") OffsetDateTime to);
+
+    List<SuggestionLog> findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(Long locationId, Pageable pageable);
 }

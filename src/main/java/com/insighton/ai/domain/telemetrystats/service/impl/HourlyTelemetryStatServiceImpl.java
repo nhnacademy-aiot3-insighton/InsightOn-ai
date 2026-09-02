@@ -5,6 +5,7 @@ import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.telemetrystats.entity.HourlyTelemetryStat;
+import com.insighton.ai.domain.telemetrystats.dto.HourlyPeakPattern;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatCreateRequest;
 import com.insighton.ai.domain.telemetrystats.dto.HourlyTelemetryStatResponse;
 import com.insighton.ai.domain.telemetrystats.dto.PeriodTelemetrySummary;
@@ -37,6 +38,8 @@ import tools.jackson.databind.json.JsonMapper;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatService {
+
+    private static final double PEAK_PATTERN_THRESHOLD_PERCENT = 15.0;
 
     private final HourlyTelemetryStatRepository hourlyTelemetryStatRepository;
     private final Validator validator;
@@ -242,6 +245,30 @@ public class HourlyTelemetryStatServiceImpl implements HourlyTelemetryStatServic
     @Override
     public List<Long> findDistinctLocationIds(OffsetDateTime from, OffsetDateTime to) {
         return hourlyTelemetryStatRepository.findDistinctLocationIds(from, to);
+    }
+
+    @Override
+    public List<HourlyPeakPattern> extractPeakPatterns(PeriodTelemetrySummary summary) {
+        List<HourlyPeakPattern> patterns = new ArrayList<>();
+
+        summary.hourlyAvgByMetric().forEach((metric, hourlyAvg) -> {
+            Double baselineAvg = summary.metricsAvg().get(metric);
+            if (baselineAvg == null || baselineAvg == 0.0 || hourlyAvg.isEmpty()) {
+                return;
+            }
+
+            Map.Entry<Integer, Double> peak = hourlyAvg.entrySet().stream()
+                    .max(Map.Entry.comparingByValue())
+                    .orElseThrow();
+
+            double percentAboveBaseline = (peak.getValue() - baselineAvg) / baselineAvg * 100.0;
+            if (percentAboveBaseline >= PEAK_PATTERN_THRESHOLD_PERCENT) {
+                patterns.add(new HourlyPeakPattern(metric, peak.getKey(), peak.getValue(), baselineAvg,
+                        percentAboveBaseline));
+            }
+        });
+
+        return patterns;
     }
 
     /**
