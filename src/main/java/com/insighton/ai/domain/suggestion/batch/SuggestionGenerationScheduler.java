@@ -176,6 +176,20 @@ public class SuggestionGenerationScheduler {
     }
 
     /**
+     * 거절 패턴 조회/과거 actionPayload 파싱이 실패해도(저장소 오류, 옛 포맷 손상 등) 제안 생성 자체가 죽지 않도록 감싸서, 실패 시 빈 목록을
+     * 반환. 이 신호는 원래도 참고용일 뿐이라 없어도 제안 생성엔 지장 없음 - 특히 이벤트 트리거 경로는 큐에 DLQ가 없어서, 여기서 예외가 새어나가면
+     * 위치 하나의 오래된 이력 데이터 하나 때문에 그 위치의 긴급 제안이 계속 조용히 실패할 수 있음.
+     */
+    private List<RejectionPattern> tryFindRejectionPatterns(Long locationId) {
+        try {
+            return suggestionLogService.findRejectionPatterns(locationId);
+        } catch (Exception e) {
+            log.warn("거절 패턴 조회 실패, 참고 신호 없이 진행 - locationId:{}", locationId, e);
+            return List.of();
+        }
+    }
+
+    /**
      * 재집계된 데이터를 LLM 프롬프트 텍스트로 조립한다. 정기 스케줄 전용으로, 직전 시간 대비 변화를 추가로 보여준 뒤 공통 컨텍스트를 이어붙인다.
      */
     private String buildSuggestionPrompt(PeriodTelemetrySummary current, PeriodTelemetrySummary previous,
@@ -272,7 +286,7 @@ public class SuggestionGenerationScheduler {
             });
         }
 
-        List<RejectionPattern> rejectionPatterns = suggestionLogService.findRejectionPatterns(locationId);
+        List<RejectionPattern> rejectionPatterns = tryFindRejectionPatterns(locationId);
         if (!rejectionPatterns.isEmpty()) {
             sb.append("\n## 참고 - 최근 자주 거절된 조작 (참고용 신호이며, 현재 상황이 다르면 무시해도 됨)\n");
             rejectionPatterns.forEach(p ->
