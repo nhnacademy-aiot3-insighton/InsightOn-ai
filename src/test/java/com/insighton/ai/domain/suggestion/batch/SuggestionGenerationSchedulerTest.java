@@ -105,7 +105,7 @@ class SuggestionGenerationSchedulerTest {
         suggestionGenerationScheduler.generateOneSuggestion(42L, CURRENT_HOUR);
 
         verify(suggestionLogService, never()).create(any());
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test
@@ -125,7 +125,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test
@@ -146,7 +146,7 @@ class SuggestionGenerationSchedulerTest {
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isTrue();
 
-        verify(actuatorCommandExecutor).execute(eq(42L),
+        verify(actuatorCommandExecutor).execute(eq(5L), eq(42L),
                 eq(List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))), eq(CallerService.AI_SYSTEM));
     }
 
@@ -166,7 +166,7 @@ class SuggestionGenerationSchedulerTest {
         ArgumentCaptor<SuggestionLogCreateRequest> captor = ArgumentCaptor.forClass(SuggestionLogCreateRequest.class);
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isNull();
-        verify(actuatorCommandExecutor, never()).execute(any(), any(), any());
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test

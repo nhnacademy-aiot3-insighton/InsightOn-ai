@@ -175,8 +175,8 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
         ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());
 
         if (!actionPayload.actions().isEmpty()) {
-            actuatorCommandExecutor.execute(actionPayload.locationId(), actionPayload.actions(),
-                    CallerService.AI_SYSTEM);
+            actuatorCommandExecutor.execute(suggestionLog.getGroupId(), actionPayload.locationId(),
+                    actionPayload.actions(), CallerService.AI_SYSTEM);
         }
 
         log.info("AI 제안 수락 - suggestionLogId:{}", suggestionLogId);

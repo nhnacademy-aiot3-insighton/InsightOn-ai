@@ -169,7 +169,7 @@ public class SuggestionGenerationScheduler {
         ));
 
         if (autoExecute) {
-            actuatorCommandExecutor.execute(actionPayload.locationId(), actionPayload.actions(),
+            actuatorCommandExecutor.execute(location.groupId(), actionPayload.locationId(), actionPayload.actions(),
                     CallerService.AI_SYSTEM);
         }
 
