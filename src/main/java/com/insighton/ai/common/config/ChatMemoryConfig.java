@@ -6,6 +6,7 @@ import com.insighton.ai.adapter.client.tool.WeatherChatTool;
 import com.insighton.ai.domain.enginealert.tool.EngineAlertChatTool;
 import com.insighton.ai.domain.notification.tool.NotificationChatTool;
 import com.insighton.ai.domain.report.tool.ReportChatTool;
+import com.insighton.ai.domain.scheduledtask.tool.ScheduledComfortSetupChatTool;
 import com.insighton.ai.domain.suggestion.tool.SuggestionChatTool;
 import com.insighton.ai.domain.telemetrystats.tool.TelemetryStatChatTool;
 import org.springframework.ai.chat.client.ChatClient;
@@ -41,13 +42,15 @@ public class ChatMemoryConfig {
                                     NotificationChatTool notificationChatTool,
                                     LocationChatTool locationChatTool,
                                     ActuatorChatTool actuatorChatTool,
-                                    WeatherChatTool weatherChatTool) {
+                                    WeatherChatTool weatherChatTool,
+                                    ScheduledComfortSetupChatTool scheduledComfortSetupChatTool) {
         return ChatClient.builder(chatModel)
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .defaultTools(reportChatTool, telemetryStatChatTool,
                         engineAlertChatTool, suggestionChatTool,
                         notificationChatTool, locationChatTool,
-                        actuatorChatTool, weatherChatTool)
+                        actuatorChatTool, weatherChatTool,
+                        scheduledComfortSetupChatTool)
                 .build();
     }
 }
