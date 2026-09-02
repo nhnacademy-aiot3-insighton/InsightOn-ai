@@ -7,15 +7,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-import com.insighton.ai.adapter.client.CoreClient;
-import com.insighton.ai.adapter.client.dto.AutoControlMode;
-import com.insighton.ai.adapter.client.dto.LocationResponse;
+import com.insighton.ai.adapter.client.LocationResolver;
 import com.insighton.ai.domain.telemetrystats.dto.PeriodTelemetrySummary;
 import com.insighton.ai.domain.telemetrystats.service.HourlyTelemetryStatService;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -31,7 +29,7 @@ class TelemetryStatChatToolTest {
     private HourlyTelemetryStatService hourlyTelemetryStatService;
 
     @Mock
-    private CoreClient coreClient;
+    private LocationResolver locationResolver;
 
     @InjectMocks
     private TelemetryStatChatTool telemetryStatChatTool;
@@ -54,9 +52,7 @@ class TelemetryStatChatToolTest {
     @Test
     void getStats_locationName이_정확히_일치하면_해당_위치로_조회한다() {
         ToolContext toolContext = new ToolContext(Map.of("groupId", 5L));
-        given(coreClient.getLocationsByGroup(5L)).willReturn(List.of(
-                new LocationResponse(42L, "사무실1", 5L, AutoControlMode.SUGGESTION),
-                new LocationResponse(99L, "사무실2", 5L, AutoControlMode.SUGGESTION)));
+        given(locationResolver.resolveIdByName(5L, "사무실1")).willReturn(Optional.of(42L));
         given(hourlyTelemetryStatService.summarizePeriod(eq(42L), any(), any())).willReturn(SUMMARY);
 
         Object result = telemetryStatChatTool.getStats("사무실1", null, null, toolContext);
@@ -67,8 +63,7 @@ class TelemetryStatChatToolTest {
     @Test
     void getStats_locationName이_대소문자_무시_부분일치하면_해당_위치로_조회한다() {
         ToolContext toolContext = new ToolContext(Map.of("groupId", 5L));
-        given(coreClient.getLocationsByGroup(5L)).willReturn(List.of(
-                new LocationResponse(42L, "1F Office", 5L, AutoControlMode.SUGGESTION)));
+        given(locationResolver.resolveIdByName(5L, "office")).willReturn(Optional.of(42L));
         given(hourlyTelemetryStatService.summarizePeriod(eq(42L), any(), any())).willReturn(SUMMARY);
 
         Object result = telemetryStatChatTool.getStats("office", null, null, toolContext);
@@ -79,8 +74,7 @@ class TelemetryStatChatToolTest {
     @Test
     void getStats_locationName과_일치하는_위치가_없으면_안내_문구를_반환한다() {
         ToolContext toolContext = new ToolContext(Map.of("groupId", 5L));
-        given(coreClient.getLocationsByGroup(5L)).willReturn(List.of(
-                new LocationResponse(42L, "사무실1", 5L, AutoControlMode.SUGGESTION)));
+        given(locationResolver.resolveIdByName(5L, "없는위치")).willReturn(Optional.empty());
 
         Object result = telemetryStatChatTool.getStats("없는위치", null, null, toolContext);
 

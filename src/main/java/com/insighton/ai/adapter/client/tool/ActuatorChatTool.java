@@ -1,12 +1,10 @@
 package com.insighton.ai.adapter.client.tool;
 
 import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.LocationResolver;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
-import com.insighton.ai.adapter.client.dto.CallerService;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
-import com.insighton.ai.adapter.client.dto.LocationResponse;
-import java.util.List;
-import java.util.Locale;
+import com.insighton.ai.adapter.client.dto.CallerService;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -22,6 +20,7 @@ public class ActuatorChatTool {
             + "사용자에게 어느 위치인지 물어보세요.";
 
     private final CoreClient coreClient;
+    private final LocationResolver locationResolver;
 
     @Tool(description = "지정된 위치의 액추에이터를 조작한다. locationName으로 위치를 이름으로 지정할 수 있고,"
             + "안 주면 대화에 지정된 현재 위치를 쓴다. actuatorType/command/ commandValue는 반드시 아래 조합만 쓴다 \n"
@@ -41,7 +40,7 @@ public class ActuatorChatTool {
         Long locationId;
 
         if (locationName != null) {
-            Optional<Long> resolved = resolveLocationIdByName(groupId, locationName);
+            Optional<Long> resolved = locationResolver.resolveIdByName(groupId, locationName);
 
             if (resolved.isEmpty()) {
                 return "위치를 찾을 수 없습니다: " + locationName;
@@ -59,25 +58,5 @@ public class ActuatorChatTool {
                 ActuatorCommandRequest.of(actuatorType.name(), command, commandValue, CallerService.AI_SYSTEM));
 
         return "조작 완료: " + actuatorType + " " + command + "=" + commandValue;
-    }
-
-    private Optional<Long> resolveLocationIdByName(Long groupId, String locationName) {
-        List<LocationResponse> locations = coreClient.getLocationsByGroup(groupId);
-
-        Optional<LocationResponse> exactMatch = locations.stream()
-                .filter(location ->
-                        location.locationName().equalsIgnoreCase(locationName))
-                .findFirst();
-
-        if (exactMatch.isPresent()) {
-            return exactMatch.map(LocationResponse::locationId);
-        }
-
-        String normalizedQuery = locationName.toLowerCase(Locale.ROOT);
-        return locations.stream()
-                .filter(location ->
-                        location.locationName().toLowerCase(Locale.ROOT).contains(normalizedQuery))
-                .map(LocationResponse::locationId)
-                .findFirst();
     }
 }
