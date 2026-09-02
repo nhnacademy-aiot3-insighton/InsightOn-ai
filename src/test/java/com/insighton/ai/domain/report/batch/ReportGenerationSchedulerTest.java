@@ -283,6 +283,27 @@ class ReportGenerationSchedulerTest {
     }
 
     @Test
+    void generateOneReport_센서_없이_액추에이터만_있는_위치도_액추에이터_비교에_포함된다() {
+        PeriodTelemetrySummary current = new PeriodTelemetrySummary(42L, PERIOD_START, PERIOD_END,
+                Map.of(), Map.of(), Map.of(), Map.of("AIRCON", 100.0), Map.of());
+        stubCommonData(current, summary(Map.of()));
+        given(coreClient.getLocationsByGroup(5L)).willReturn(List.of(
+                new LocationResponse(99L, "센서_없는_위치", 5L, AutoControlMode.SUGGESTION)));
+        // metricsAvg는 비어있지만 actuatorOnMinutes엔 데이터가 있음 - 예전엔 metricsAvg만 보고 통째로
+        // 걸러져서 이 위치의 액추에이터 데이터까지 같이 사라졌었음
+        given(hourlyTelemetryStatService.summarizePeriod(99L, PERIOD_START, PERIOD_END)).willReturn(
+                new PeriodTelemetrySummary(99L, PERIOD_START, PERIOD_END,
+                        Map.of(), Map.of(), Map.of(), Map.of("AIRCON", 60.0), Map.of()));
+
+        reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue()).contains("AIRCON 가동시간: 이 위치 100.0분 vs 그룹 평균 60.0분 (+66.7%)");
+    }
+
+    @Test
     void generateOneReport_개선_제안에_기대효과_서술_지침이_포함된다() {
         stubCommonData(summary(Map.of()), summary(Map.of()));
 
@@ -354,6 +375,25 @@ class ReportGenerationSchedulerTest {
 
         verify(flowDraftRequester).requestDraft(5L, 42L, 100L, "8월 월간 3층 회의실 리포트", pattern,
                 new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"));
+    }
+
+    @Test
+    void generateOneReport_업무시간_밖_피크는_리포트에는_남지만_flow_자동화_대상에서는_제외된다() {
+        PeriodTelemetrySummary current = new PeriodTelemetrySummary(42L, PERIOD_START, PERIOD_END,
+                Map.of("co2", 800.0), Map.of(), Map.of(), Map.of("VENTILATION_FAN", 30.0), Map.of());
+        stubCommonData(current, summary(Map.of()));
+        HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 3, 1100.0, 800.0, 37.5);
+        given(hourlyTelemetryStatService.extractPeakPatterns(current)).willReturn(List.of(pattern));
+
+        reportGenerationScheduler.generateOneReport(ReportType.MONTHLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue()).contains("co2: 3시경");
+
+        verify(callResponseSpec, never()).entity(FlowActionDecisions.class);
+        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any(), any());
     }
 
     @Test

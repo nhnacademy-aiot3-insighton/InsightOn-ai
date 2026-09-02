@@ -65,7 +65,7 @@ class FlowDraftRequesterTest {
     }
 
     @Test
-    void requestDraft_피크시간이_0시면_전날_23시_45분_cron으로_조립된다() {
+    void requestDraft_피크시간이_0시면_전날_23시_45분_SUN_THU_cron으로_조립된다() {
         given(ruleEngineClient.createFlowDraft(anyLong(), any()))
                 .willReturn(new FlowDraftResponse(1L, "INACTIVE"));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 0, 1100.0, 800.0, 37.5);
@@ -77,7 +77,7 @@ class FlowDraftRequesterTest {
         verify(ruleEngineClient).createFlowDraft(anyLong(), requestCaptor.capture());
 
         assertThat(requestCaptor.getValue().nodes().get(0).configuration())
-                .containsEntry("cron", "0 45 23 * * MON-FRI");
+                .containsEntry("cron", "0 45 23 * * SUN-THU");
     }
 
     @Test

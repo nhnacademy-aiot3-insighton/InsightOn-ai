@@ -63,11 +63,15 @@ public class FlowDraftRequester {
     }
 
     /**
-     * 피크 시간 15분 전에 미리 조작하도록 cron을 조립한다(예: 14시경 피크면 13:45). 자정을 넘어가는 경우도 처리(0시 피크 → 전날 23:45).
+     * 피크 시간 15분 전에 미리 조작하도록 cron을 조립한다(예: 14시경 피크면 13:45). 자정을 넘어가는 경우(0시 피크 → 전날 23:45)엔 실행 요일도 하루
+     * 앞당겨야 한다 - 그대로 MON-FRI를 쓰면 "월요일 23:45"가 화요일 0시 피크를 대상으로 하게 되어, 월요일 피크는 못 잡고 토요일 0시 피크를
+     * 금요일 23:45에 잘못 잡아버린다(요일이 하루씩 밀림).
      */
     private String buildPreventiveCron(int peakHour) {
         int triggerHour = Math.floorMod(peakHour - PREVENTIVE_LEAD_HOURS, 24);
-        return "0 45 " + triggerHour + " * * MON-FRI";
+        boolean wrappedToPreviousDay = triggerHour > peakHour;
+        String weekdays = wrappedToPreviousDay ? "SUN-THU" : "MON-FRI";
+        return "0 45 " + triggerHour + " * * " + weekdays;
     }
 
     // "[AI] " 접두어는 Rule Engine의 FlowService.createAiDraft()가 강제한다(이 접두어가 없으면

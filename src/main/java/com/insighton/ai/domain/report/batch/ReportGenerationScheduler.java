@@ -55,6 +55,11 @@ public class ReportGenerationScheduler {
 
     private static final double GROUP_COMPARISON_THRESHOLD_PERCENT = 15.0;
 
+    // SuggestionGenerationScheduler의 정기 배치 cron("0 5 9-17 * * MON-FRI")과 동일한 업무시간 기준 -
+    // flow 자동화는 이 시간대 피크에만 만든다(requestFlowDrafts 참고).
+    private static final int BUSINESS_HOUR_START = 9;
+    private static final int BUSINESS_HOUR_END = 17;
+
     // Core com.insighton.core.domain.actuators.policy의 CommandType/CommandValueRule 확정값과 동일하게 유지할 것
     // (SuggestionGenerationScheduler.ACTUATOR_COMMANDS와 같은 값 - flow 초안 판단용 프롬프트에도 같은 허용 어휘가 필요해 중복 선언)
     private static final Map<String, Map<String, String>> ACTUATOR_COMMANDS = Map.of(
@@ -187,21 +192,30 @@ public class ReportGenerationScheduler {
     }
 
     /**
-     * 시간대별 패턴이 있으면 LLM에게 "예방적 자동화가 적절한지, 적절하다면 어떤 액추에이터를 어떻게 조작할지"를 직접 판단시킨 뒤, 그 판단대로만 Rule Engine에 flow 초안 생성을 요청한다 -
-     * 어떤 조작을 할지를 고정된 매핑표로 미리 정해두면 AI 판단이 아니라 규칙표 조회가 되어버리므로, 매번 상황(패턴 크기, 위치에 실제 있는 액추에이터)을 보고 LLM이 결정하게 한다. 이 위치에
-     * 액추에이터가 하나도 없으면 LLM 호출 자체를 건너뛴다. 실패는 {@link FlowDraftRequester}가 자체적으로 흡수하므로 여기선 별도 try-catch가 필요 없다.
+     * 업무시간(BUSINESS_HOUR_START~END) 내 피크만 골라 LLM에게 "예방적 자동화가 적절한지, 적절하다면 어떤 액추에이터를 어떻게 조작할지"를 직접 판단시킨 뒤, 그
+     * 판단대로만 Rule Engine에 flow 초안 생성을 요청한다 - 어떤 조작을 할지를 고정된 매핑표로 미리 정해두면 AI 판단이 아니라 규칙표 조회가 되어버리므로, 매번 상황(패턴
+     * 크기, 위치에 실제 있는 액추에이터)을 보고 LLM이 결정하게 한다. 업무시간 밖 피크(예: 새벽)는 사람이 없어 자동화해도 의미가 없어 대상에서 제외한다 - 그 시간대 패턴을
+     * 리포트에서 서술하는 건 여전히 유효한 진단 정보라 buildPrompt() 쪽은 원본 peakPatterns를 그대로 쓴다. 이 위치에 액추에이터가 하나도 없으면 LLM 호출 자체를
+     * 건너뛴다. 실패는 {@link FlowDraftRequester}가 자체적으로 흡수하므로 여기선 별도 try-catch가 필요 없다.
      */
     private void requestFlowDrafts(Long groupId, Long locationId, Long reportId, String reportTitle,
                                    PeriodTelemetrySummary current, List<HourlyPeakPattern> peakPatterns) {
+        // 업무시간(SuggestionGenerationScheduler가 쓰는 9~17시와 동일 기준) 밖의 피크는 자동화 대상에서 제외한다 -
+        // 새벽에 튀는 패턴을 그 시간에 미리 대응해봤자 사람이 없어서 의미가 없다. 리포트 서술(buildPrompt)에는
+        // peakPatterns 원본을 그대로 쓰므로, 진단 정보로서의 가치는 그대로 유지된다 - 자동화 생성만 막는다.
+        List<HourlyPeakPattern> businessHourPatterns = peakPatterns.stream()
+                .filter(pattern -> pattern.peakHour() >= BUSINESS_HOUR_START && pattern.peakHour() <= BUSINESS_HOUR_END)
+                .toList();
+
         Set<String> presentActuatorTypes = current.actuatorOnMinutes().keySet();
-        if (peakPatterns.isEmpty() || presentActuatorTypes.isEmpty()) {
+        if (businessHourPatterns.isEmpty() || presentActuatorTypes.isEmpty()) {
             return;
         }
 
-        String prompt = buildFlowActionPrompt(peakPatterns, presentActuatorTypes);
+        String prompt = buildFlowActionPrompt(businessHourPatterns, presentActuatorTypes);
         FlowActionDecisions result = chatClient.prompt().user(prompt).call().entity(FlowActionDecisions.class);
 
-        Map<String, HourlyPeakPattern> patternsByMetric = peakPatterns.stream()
+        Map<String, HourlyPeakPattern> patternsByMetric = businessHourPatterns.stream()
                 .collect(Collectors.toMap(HourlyPeakPattern::metric, Function.identity(), (a, b) -> a));
 
         for (FlowActionDecision decision : result.decisions()) {
@@ -300,7 +314,10 @@ public class ReportGenerationScheduler {
                 .map(LocationResponse::locationId)
                 .filter(otherId -> !otherId.equals(locationId))
                 .map(otherId -> hourlyTelemetryStatService.summarizePeriod(otherId, periodStart, periodEnd))
-                .filter(summary -> !summary.metricsAvg().isEmpty())
+                // metricsAvg만 보고 걸렀었는데, 그러면 센서 없이 액추에이터만 있는 위치가 액추에이터 비교에서조차
+                // 통째로 빠짐 - 둘 중 하나라도 있으면 남긴다(어느 쪽이 실제로 비교 가능한지는 diffAgainstGroup이
+                // 지표/액추에이터 키 단위로 이미 독립적으로 걸러낸다).
+                .filter(summary -> !summary.metricsAvg().isEmpty() || !summary.actuatorOnMinutes().isEmpty())
                 .toList();
 
         if (others.isEmpty()) {
