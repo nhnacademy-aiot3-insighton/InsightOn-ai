@@ -69,7 +69,12 @@ public class SseEmitterRegistry {
             for (SseEmitter emitter : emitters) {
                 try {
                     emitter.send(SseEmitter.event().comment("heartbeat"));
-                } catch (IOException e) {
+                } catch (IOException | IllegalStateException e) {
+                    // IllegalStateException: onCompletion/onTimeout/onError 콜백이 아직 안 돌아
+                    // sseRemove가 안 됐는데 이 emitter가 이미 완료된 경우(ResponseBodyEmitter가
+                    // send()에서 이 상태를 IOException이 아니라 IllegalStateException으로 던짐).
+                    // 여기서도 안 잡으면 레지스트리에 죽은 emitter가 영원히 남아 다음 하트비트마다
+                    // 계속 재발한다.
                     sseRemove(groupId, emitter);
                 }
             }
