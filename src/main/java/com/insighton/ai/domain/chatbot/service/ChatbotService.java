@@ -3,14 +3,18 @@ package com.insighton.ai.domain.chatbot.service;
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
+import com.insighton.ai.common.config.RedisStringChatMemoryRepository;
+import com.insighton.ai.domain.chatbot.dto.ChatHistoryMessage;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -47,6 +51,7 @@ public class ChatbotService {
     private final ChatClient chatbotClient;
     private final CoreClient coreClient;
     private final StringRedisTemplate redisTemplate;
+    private final RedisStringChatMemoryRepository chatMemoryRepository;
 
     public Flux<String> streamChat(Long groupId, Long userId, Long locationId, String message) {
 
@@ -65,7 +70,7 @@ public class ChatbotService {
             context.put("locationId", locationId);
         }
 
-        String conversationId = "chat:" + groupId + ":" + userId + (locationId != null ? ":" + locationId : "");
+        String conversationId = conversationId(groupId, userId);
         String systemPrompt = SYSTEM_PROMPT_TEMPLATE.formatted(OffsetDateTime.now());
 
         Flux<String> chatFlux = chatbotClient.prompt()
@@ -84,6 +89,23 @@ public class ChatbotService {
         return acquireLock(lockKey, lockValue)
                 .thenMany(chatFlux)
                 .doFinally(signalType -> releaseLock(lockKey, lockValue));
+    }
+
+    /**
+     * userId 기준으로 통합된 대화 이력을 조회한다(위치별로 나뉘지 않음 - conversationId도 동일 기준).
+     * 도구 호출/응답(TOOL)과 시스템 프롬프트(SYSTEM)는 화면에 보여줄 대상이 아니라 제외한다.
+     */
+    public List<ChatHistoryMessage> getHistory(Long groupId, Long userId) {
+        String conversationId = conversationId(groupId, userId);
+
+        return chatMemoryRepository.findRawByConversationId(conversationId).stream()
+                .filter(stored -> stored.type() == MessageType.USER || stored.type() == MessageType.ASSISTANT)
+                .map(stored -> new ChatHistoryMessage(stored.type().name(), stored.text()))
+                .toList();
+    }
+
+    private String conversationId(Long groupId, Long userId) {
+        return "chat:" + groupId + ":" + userId;
     }
 
     private Mono<Void> acquireLock(String lockKey, String lockValue) {

@@ -1,15 +1,20 @@
 package com.insighton.ai.domain.report.batch;
 
-import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.ACTUATOR_COMMANDS;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_END;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_START;
 
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.FlowDraftRequester;
+import com.insighton.ai.adapter.client.RuleEngineClient;
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandSummary;
 import com.insighton.ai.adapter.client.dto.ActuatorRunLogResponse;
+import com.insighton.ai.adapter.client.dto.FlowSummaryResponse;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
+import com.insighton.ai.adapter.client.dto.WeatherResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
+import com.insighton.ai.domain.flow.FlowActionPromptBuilder;
 import com.insighton.ai.domain.report.dto.FlowActionDecision;
 import com.insighton.ai.domain.report.dto.FlowActionDecisions;
 import com.insighton.ai.domain.report.dto.GroupComparisonSummary;
@@ -57,12 +62,6 @@ public class ReportGenerationScheduler {
 
     private static final double GROUP_COMPARISON_THRESHOLD_PERCENT = 15.0;
 
-    // SuggestionGenerationScheduler의 정기 배치 cron("0 5 9-17 * * MON-FRI")과 동일한 업무시간 기준 -
-    // flow 자동화는 이 시간대 피크에만 만든다(requestFlowDrafts 참고).
-    private static final int BUSINESS_HOUR_START = 9;
-    private static final int BUSINESS_HOUR_END = 17;
-
-
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final EngineAlertService engineAlertService;
     private final SuggestionLogService suggestionLogService;
@@ -70,12 +69,13 @@ public class ReportGenerationScheduler {
     private final ReportService reportService;
     private final ChatClient chatClient;
     private final FlowDraftRequester flowDraftRequester;
+    private final FlowActionPromptBuilder flowActionPromptBuilder;
+    private final RuleEngineClient ruleEngineClient;
 
-    // TEST ONLY: 30분마다 도는 테스트용 cron. 원래 값 "0 0 0 * * MON" (매주 월요일 00:00)로 되돌리고 커밋할 것.
     /**
      * 매주 월요일 00:00 실행. 직전 월~일(7일)을 이번 기간, 그 전 7일을 비교 기준(지난 기간)
      */
-    @Scheduled(cron = "0 */30 * * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 0 * * MON", zone = "Asia/Seoul")
     @SchedulerLock(name = "weeklyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateWeeklyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
@@ -84,11 +84,10 @@ public class ReportGenerationScheduler {
                 now.minusWeeks(2), now.minusWeeks(1).minusHours(1));
     }
 
-    // TEST ONLY: 30분마다 도는 테스트용 cron. 원래 값 "0 0 0 1 * *" (매월 1일 00:00)로 되돌리고 커밋할 것.
     /**
      * 매월 1일 00:00 실행. 직전 달 1일~말일을 이번 기간, 그 전달을 비교 기준(지난 기간)
      */
-    @Scheduled(cron = "0 */30 * * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 0 1 * *", zone = "Asia/Seoul")
     @SchedulerLock(name = "monthlyReportGeneration", lockAtMostFor = "PT30M", lockAtLeastFor = "PT1M")
     public void generateMonthlyReports() {
         OffsetDateTime now = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.DAYS);
@@ -157,8 +156,11 @@ public class ReportGenerationScheduler {
                 ? hourlyTelemetryStatService.extractPeakPatterns(current)
                 : List.of();
 
+        List<FlowSummaryResponse> aiFlows = tryFindAiFlows(location.groupId(), locationId);
+        WeatherResponse weather = hasAiFlows(aiFlows) ? tryGetWeather(location.groupId()) : null;
+
         String prompt = buildPrompt(reportType, current, previous, alerts, suggestions, actuatorCommands,
-                groupComparison, peakPatterns);
+                groupComparison, peakPatterns, aiFlows, weather);
 
         String content = chatClient.prompt()
                 .user(prompt)
@@ -177,11 +179,11 @@ public class ReportGenerationScheduler {
     }
 
     /**
-     * 업무시간(BUSINESS_HOUR_START~END) 내 피크만 골라 LLM에게 "예방적 자동화가 적절한지, 적절하다면 어떤 액추에이터를 어떻게 조작할지"를 직접 판단시킨 뒤, 그
-     * 판단대로만 Rule Engine에 flow 초안 생성을 요청한다 - 어떤 조작을 할지를 고정된 매핑표로 미리 정해두면 AI 판단이 아니라 규칙표 조회가 되어버리므로, 매번 상황(패턴
-     * 크기, 위치에 실제 있는 액추에이터)을 보고 LLM이 결정하게 한다. 업무시간 밖 피크(예: 새벽)는 사람이 없어 자동화해도 의미가 없어 대상에서 제외한다 - 그 시간대 패턴을
-     * 리포트에서 서술하는 건 여전히 유효한 진단 정보라 buildPrompt() 쪽은 원본 peakPatterns를 그대로 쓴다. 이 위치에 액추에이터가 하나도 없으면 LLM 호출 자체를
-     * 건너뛴다. 실패는 {@link FlowDraftRequester}가 자체적으로 흡수하므로 여기선 별도 try-catch가 필요 없다.
+     * 업무시간(BUSINESS_HOUR_START~END) 내 피크만 골라 LLM에게 "예방적 자동화가 적절한지, 적절하다면 어떤 액추에이터를 어떻게 조작할지"를 직접 판단시킨 뒤, 그 판단대로만 Rule
+     * Engine에 flow 초안 생성을 요청한다 - 어떤 조작을 할지를 고정된 매핑표로 미리 정해두면 AI 판단이 아니라 규칙표 조회가 되어버리므로, 매번 상황(패턴 크기, 위치에 실제 있는 액추에이터)을
+     * 보고 LLM이 결정하게 한다. 업무시간 밖 피크(예: 새벽)는 사람이 없어 자동화해도 의미가 없어 대상에서 제외한다 - 그 시간대 패턴을 리포트에서 서술하는 건 여전히 유효한 진단 정보라
+     * buildPrompt() 쪽은 원본 peakPatterns를 그대로 쓴다. 이 위치에 액추에이터가 하나도 없으면 LLM 호출 자체를 건너뛴다. 실패는 {@link FlowDraftRequester}가
+     * 자체적으로 흡수하므로 여기선 별도 try-catch가 필요 없다.
      */
     private void requestFlowDrafts(Long groupId, Long locationId, Long reportId, String reportTitle,
                                    PeriodTelemetrySummary current, List<HourlyPeakPattern> peakPatterns) {
@@ -199,7 +201,7 @@ public class ReportGenerationScheduler {
             return;
         }
 
-        String prompt = buildFlowActionPrompt(businessHourPatterns, presentActuatorTypes);
+        String prompt = flowActionPromptBuilder.build(businessHourPatterns, presentActuatorTypes);
         FlowActionDecisions result = chatClient.prompt().user(prompt).call().entity(FlowActionDecisions.class);
         log.info("flow 자동화 LLM 판단 결과 - locationId:{}, 판단 수:{}", locationId, result.decisions().size());
 
@@ -219,43 +221,41 @@ public class ReportGenerationScheduler {
             }
             ActuatorAction action = new ActuatorAction(decision.actuatorType(), decision.command(),
                     decision.commandValue());
-            flowDraftRequester.requestDraft(groupId, locationId, reportId, reportTitle, pattern, action);
+            flowDraftRequester.requestDraft(groupId, locationId, reportTitle + " #" + reportId, pattern, action);
         }
     }
 
     /**
-     * 시간대별 패턴별로 예방적 자동화 여부와 구체적인 명령을 LLM이 판단하도록 조립하는 프롬프트. 이 위치에 실제로 있는 액추에이터와 허용 명령만 보여줘서, 존재하지 않거나 지원하지 않는 조합을 LLM이
-     * 지어내지 못하게 한다(SuggestionGenerationScheduler.buildCommonContext()와 동일 원칙).
+     * 리포트의 "관리 중인 자동화" 섹션용으로 그 위치의 flow 목록을 조회하고, AI가 만든 것("[AI] " 접두어)만 남긴다. Rule Engine 미응답/장애가 리포트 생성 자체를 막으면 안 되므로
+     * 실패 시 빈 목록으로 안전하게 진행한다.
      */
-    private String buildFlowActionPrompt(List<HourlyPeakPattern> peakPatterns, Set<String> presentActuatorTypes) {
-        StringBuilder sb = new StringBuilder();
+    private List<FlowSummaryResponse> tryFindAiFlows(Long groupId, Long locationId) {
+        try {
+            return ruleEngineClient.findFlows(groupId, locationId).stream()
+                    .filter(flow -> flow.name().startsWith("[AI] "))
+                    .toList();
+        } catch (Exception e) {
+            log.warn("관리 중인 자동화 목록 조회 실패, 빈 목록으로 진행 - locationId:{}", locationId, e);
+            return List.of();
+        }
+    }
 
-        sb.append("당신은 스마트 오피스 자동화 규칙을 설계하는 AI입니다.\n");
-        sb.append("아래 시간대별 패턴 각각에 대해, 피크 시간 전에 미리 액추에이터를 조작하는 예방적 자동화가 적절한지 판단하세요.\n\n");
+    private boolean hasAiFlows(List<FlowSummaryResponse> aiFlows) {
+        return !aiFlows.isEmpty();
+    }
 
-        sb.append("## 시간대별 패턴\n");
-        peakPatterns.forEach(pattern ->
-                sb.append("- 지표: ").append(pattern.metric()).append(", 피크 시간: ").append(pattern.peakHour())
-                        .append("시경, 피크값: ").append(round1(pattern.peakValue())).append(", 기간 평균: ")
-                        .append(round1(pattern.baselineAvg())).append(", 평균 대비 +")
-                        .append(round1(pattern.percentAboveBaseline())).append("%\n"));
-
-        sb.append("\n## 이 위치에 실제로 있는 액추에이터와 허용 명령 (이 목록 안에서만 선택)\n");
-        ACTUATOR_COMMANDS.forEach((type, commands) -> {
-            if (!presentActuatorTypes.contains(type)) {
-                return;
-            }
-            sb.append("- ").append(type).append("\n");
-            commands.forEach((command, allowedValues) ->
-                    sb.append("  - ").append(command).append(": ").append(allowedValues).append("\n"));
-        });
-
-        sb.append("\n---\n");
-        sb.append("패턴마다 하나씩 판단하세요. actuatorType/command는 반드시 위 목록에 있는 조합만 쓰세요. ")
-                .append("이 위치에 대응할 만한 액추에이터가 없거나, 자동화보다 사용자 개입이 더 적절하다고 판단되면 ")
-                .append("automationRecommended=false로 하고 나머지 필드는 비우세요.");
-
-        return sb.toString();
+    /**
+     * "관리 중인 자동화" 섹션에서 계절이 안 맞아 재검토가 필요해 보이는 자동화를 LLM이 짚어낼 수 있게 현재 실외 날씨를 조회한다. AI 플로우가 하나도 없으면 애초에 호출하지 않는다(hasAiFlows
+     * 가드, generateOneReport 참고). Core 미응답이 리포트 생성 자체를 막으면 안 되므로 실패 시 null로 안전하게 진행(SuggestionGenerationScheduler와 동일
+     * 패턴).
+     */
+    private WeatherResponse tryGetWeather(Long groupId) {
+        try {
+            return coreClient.getWeather(groupId);
+        } catch (Exception e) {
+            log.warn("날씨 조회 실패, 날씨 정보 없이 진행 - groupId:{}", groupId);
+            return null;
+        }
     }
 
     /**
@@ -388,12 +388,15 @@ public class ReportGenerationScheduler {
      * @param actuatorCommands 이번 기간 액추에이터 조작 이력 요약(설정 온도, 조작 주체 비율)
      * @param groupComparison  같은 그룹 내 다른 위치 대비 비교 결과(±15% 이상 차이나는 항목만)
      * @param peakPatterns     월간 리포트에서만 채워지는 시간대별 패턴(주간은 항상 빈 리스트)
+     * @param aiFlows          이 위치에 AI가 만든 자동화 목록("[AI] " 접두어만, 조회 실패 시 빈 리스트)
+     * @param weather          현재 실외 날씨(aiFlows가 비어있거나 조회 실패 시 null) - 계절이 안 맞는 자동화를 짚어내는 용도
      * @return 조립된 프롬프트 텍스트
      */
     private String buildPrompt(ReportType reportType, PeriodTelemetrySummary current, PeriodTelemetrySummary previous,
                                EngineAlertSummary alerts, SuggestionSummary suggestions,
                                ActuatorCommandSummary actuatorCommands, GroupComparisonSummary groupComparison,
-                               List<HourlyPeakPattern> peakPatterns) {
+                               List<HourlyPeakPattern> peakPatterns, List<FlowSummaryResponse> aiFlows,
+                               WeatherResponse weather) {
 
         StringBuilder sb = new StringBuilder();
 
@@ -482,9 +485,27 @@ public class ReportGenerationScheduler {
                             .append("%)\n"));
         }
 
+        boolean hasAiFlows = hasAiFlows(aiFlows);
+        boolean hasWeather = weather != null;
+        if (hasAiFlows) {
+            sb.append("\n## 관리 중인 자동화 (AI가 만든 flow)\n");
+            if (hasWeather) {
+                sb.append("(참고 - 현재 실외 기온: ").append(orNone(weather.temperature())).append("°C");
+                if (weather.midTermAvgMaxTemp() != null || weather.midTermAvgMinTemp() != null) {
+                    sb.append(", 4~10일 후 평균 기온 전망: ").append(orNone(weather.midTermAvgMinTemp()))
+                            .append("~").append(orNone(weather.midTermAvgMaxTemp())).append("°C");
+                }
+                sb.append(")\n");
+            }
+            aiFlows.forEach(flow ->
+                    sb.append("- ").append(flow.name()).append(" | 상태: ").append(flow.status())
+                            .append(" | ").append(flow.description()).append("\n"));
+        }
+
         sb.append("\n---\n다음 순서로 작성: 1) 요약(3줄 이내) 2) 실내 환경 진단 3) 에너지 사용 진단 ")
                 .append("4) 지난 기간 대비 해석 5) 개선 제안")
-                .append(hasComparison ? " 6) 그룹 내 비교" : "").append(". ")
+                .append(hasComparison ? " 6) 그룹 내 비교" : "")
+                .append(hasAiFlows ? " 7) 관리 중인 자동화 현황" : "").append(". ")
                 .append("2)와 6)처럼 지표별 수치가 여러 개 나열되는 섹션은 문장으로 풀어쓰지 말고 마크다운 표로 ")
                 .append("정리하세요(2번은 지표|평균|최고|최저|쾌적기준 컬럼, 6번은 지표|이 위치|그룹 평균|차이 컬럼). ")
                 .append("표 아래에 해석은 2~3문장으로 짧게만 덧붙이고, 장황한 글머리 기호 나열은 피하세요. ")
@@ -493,12 +514,22 @@ public class ReportGenerationScheduler {
                 .append("데이터에 없는 요인은 단정하지 마세요. 개선 제안마다 기대 효과를 함께 제시하세요 - ")
                 .append("제공된 데이터(액추에이터 가동시간, 설정 온도 이력, 그룹 내 비교)에서 근거를 찾을 수 있는 ")
                 .append("범위에서 방향과 대략적인 크기로만 서술하고('가동시간이 줄어 에너지 사용이 다소 감소할 것으로 ")
-                .append("예상됩니다' 등), 검증 불가능한 정확한 수치(예: '정확히 12.3% 감소')는 만들어내지 마세요.");
+                .append("예상됩니다' 등), 검증 불가능한 정확한 수치(예: '정확히 12.3% 감소')는 만들어내지 마세요.")
+                .append(hasAiFlows ? " 관리 중인 자동화 섹션은 각 자동화가 무엇을 언제 하는지와 현재 상태(활성/비활성)를 "
+                        + "간단히 나열하고, 제공된 설명 문장을 그대로 옮기지 말고 한 줄로 요약하세요." : "")
+                .append(hasAiFlows && hasWeather ? " 설명 문구에서 유추되는 생성 시점(월/계절)과 현재·(있다면) 4~10일 후 "
+                        + "기온 전망이 계절적으로 크게 안 맞으면(예: 여름철 냉방 자동화인데 지금도 앞으로도 겨울 수준 "
+                        + "기온) 재검토가 필요하다고 짧게 덧붙이세요. 현재 기온만 반짝 다르고 전망은 원래 계절과 맞으면 "
+                        + "하루짜리 변화일 수 있으니 언급하지 마세요. 전망 데이터가 없으면 현재 기온만으로 조심스럽게 판단하세요." : "");
 
         return sb.toString();
     }
 
     private String round1(double value) {
         return String.format("%.1f", value);
+    }
+
+    private String orNone(Object value) {
+        return value != null ? String.valueOf(value) : "정보없음";
     }
 }

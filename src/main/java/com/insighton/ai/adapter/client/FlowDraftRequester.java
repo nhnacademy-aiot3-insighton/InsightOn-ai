@@ -1,5 +1,8 @@
 package com.insighton.ai.adapter.client;
 
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_END;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_START;
+
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftCreateRequest;
@@ -11,6 +14,7 @@ import feign.FeignException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,10 +33,17 @@ import org.springframework.stereotype.Component;
 public class FlowDraftRequester {
 
     private static final int PREVENTIVE_LEAD_HOURS = 1;
+    // ponytail: 정적 3시간 버킷이라 경계에 걸치는 케이스(예: 11시/12시)는 여전히 다른 슬롯으로 갈릴 수 있음.
+    // 완전한 해법은 AI가 기존 flow의 실제 트리거 시각과 비교하는 것이지만 Rule Engine에 조회 API가 없어서
+    // 보류(rule-engine-flow-duplicate-check-request §3.3 참고). 진동(oscillation) 문제 해소가 우선.
+    private static final int TIME_SLOT_HOURS = 3;
 
     private final RuleEngineClient ruleEngineClient;
 
-    public void requestDraft(Long groupId, Long locationId, Long reportId, String reportTitle,
+    /**
+     * @return 생성/갱신된 flow의 실제 상태(ACTIVE/INACTIVE, Rule Engine의 AutoControlMode 판단 결과). 요청 실패 시 빈 값.
+     */
+    public Optional<String> requestDraft(Long groupId, Long locationId, String sourceDescription,
                              HourlyPeakPattern pattern, ActuatorAction action) {
         try {
             String cron = buildPreventiveCron(pattern.peakHour());
@@ -41,8 +52,8 @@ public class FlowDraftRequester {
 
             FlowDraftCreateRequest request = new FlowDraftCreateRequest(
                     locationId,
-                    buildName(pattern, reportTitle, reportId),
-                    buildDescription(pattern, reportTitle),
+                    buildName(pattern),
+                    buildDescription(pattern, sourceDescription),
                     List.of(
                             new FlowDraftNodeRequest("schedule", "SCHEDULE", Map.of("cron", cron)),
                             new FlowDraftNodeRequest("actuatorControl", "ACTUATOR_CONTROL", Map.of(
@@ -57,14 +68,22 @@ public class FlowDraftRequester {
 
             FlowDraftResponse response = ruleEngineClient.createAiDraft(groupId, request);
 
-            log.info("Rule Engine flow 초안 생성 요청 완료 - flowId:{}, locationId:{}, metric:{}, status:{}",
-                    response.flowId(), locationId, pattern.metric(), response.status());
+            if (response.replacedFlowId() != null) {
+                log.info("기존 자동화를 대체했습니다 - flowId:{}, replacedFlowId:{}, locationId:{}, metric:{}",
+                        response.flowId(), response.replacedFlowId(), locationId, pattern.metric());
+            } else {
+                log.info("Rule Engine flow 초안 생성 요청 완료 - flowId:{}, locationId:{}, metric:{}, status:{}",
+                        response.flowId(), locationId, pattern.metric(), response.status());
+            }
+            return Optional.ofNullable(response.status());
         } catch (FeignException e) {
             log.warn("Rule Engine flow 초안 생성 요청 실패, 건너뜀 - locationId:{}, metric:{}, status:{}, body:{}",
                     locationId, pattern.metric(), e.status(), e.contentUTF8(), e);
+            return Optional.empty();
         } catch (Exception e) {
             log.warn("Rule Engine flow 초안 생성 요청 실패, 건너뜀 - locationId:{}, metric:{}",
                     locationId, pattern.metric(), e);
+            return Optional.empty();
         }
     }
 
@@ -82,20 +101,29 @@ public class FlowDraftRequester {
 
     // "[AI] " 접두어는 Rule Engine의 FlowService.createAiDraft()가 강제한다(이 접두어가 없으면
     // InvalidAiDraftNameException) - AI가 만든 flow인지 이름만 보고 구분하려는 목적이라 여기서 빼면 안 됨.
-    // reportTitle(예: "8월 월간 3층 회의실 리포트")을 넣어 어느 리포트에서 나왔는지 한눈에 보이게 하고, reportId도 같이 붙여
-    // 매 리포트마다 항상 새 초안을 만든다(같은 위치·지표라도 이번 판단이 지난달과 다를 수 있어서 예전 초안과 이름이 겹쳐 조용히
-    // 재사용되면 안 됨 - reportTitle만으론 연도가 안 들어가 내년 같은 달에 또 겹칠 수 있어서 reportId가 실질적인 유일성 보장을 함).
-    // 같은 리포트 내에서 재시도로 이 메서드가 두 번 불려도 reportId가 같아 이름도 같으므로, Rule Engine의
-    // (group_id, location_id, name) 유니크 제약이 중복 생성만 막아준다 - 재시도 안전성은 그대로 유지.
-    private String buildName(HourlyPeakPattern pattern, String reportTitle, Long reportId) {
-        return "[AI] " + pattern.metric() + " 예방 자동화 (" + reportTitle + " #" + reportId + ")";
+    // 이름에 reportId 등 호출마다 달라지는 값은 안 넣는다 - 대신 결정론적인 시간대(timeSlot)를 붙인다.
+    // 지표 하나에 자동화가 최대 1개라고 가정하면 안 되는 이유: 이 자동화가 성공해서 13시 피크를 없애면
+    // 다음 분석 땐 15시가 새 최고점으로 잡히는데, 이름이 지표 하나로만 고정돼 있으면 15시 flow가 13시
+    // flow를 갱신(archive)해버리고, 13시 문제는 다시 재발 → 13시가 다시 최고점 → 무한 반복(진동)에
+    // 빠진다. 시간대를 이름에 넣어 "13시 자동화"와 "15시 자동화"가 서로 다른 flow로 공존하게 한다
+    // (rule-engine-flow-duplicate-check-request §3 참고).
+    private String buildName(HourlyPeakPattern pattern) {
+        return "[AI] " + pattern.metric() + " 예방 자동화 (" + timeSlotLabel(pattern.peakHour()) + ")";
     }
 
-    private String buildDescription(HourlyPeakPattern pattern, String reportTitle) {
+    private String timeSlotLabel(int peakHour) {
+        int offset = peakHour - BUSINESS_HOUR_START;
+        int slotStart = BUSINESS_HOUR_START + (offset / TIME_SLOT_HOURS) * TIME_SLOT_HOURS;
+        int slotEnd = Math.min(slotStart + TIME_SLOT_HOURS, BUSINESS_HOUR_END + 1);
+        return slotStart + "~" + slotEnd + "시";
+    }
+
+    // sourceDescription: 어디서 이 판단이 나왔는지(리포트 제목+ID, 또는 "챗봇 요청" 등) 사람이 읽을 텍스트로만 남김
+    private String buildDescription(HourlyPeakPattern pattern, String sourceDescription) {
         return String.format(Locale.ROOT,
-                "[AI 자동 생성] %s 기준, 최근 리포트 기간 동안 %s이(가) %d시경 평균 %.1f로, 기간 평균(%.1f) 대비 %.1f%% 높게 "
+                "[AI 자동 생성] %s 기준, 최근 데이터에서 %s이(가) %d시경 평균 %.1f로, 기간 평균(%.1f) 대비 %.1f%% 높게 "
                         + "반복 관측되어 미리 액추에이터를 가동하는 자동화를 제안합니다.",
-                reportTitle, pattern.metric(), pattern.peakHour(), pattern.peakValue(), pattern.baselineAvg(),
+                sourceDescription, pattern.metric(), pattern.peakHour(), pattern.peakValue(), pattern.baselineAvg(),
                 pattern.percentAboveBaseline());
     }
 }

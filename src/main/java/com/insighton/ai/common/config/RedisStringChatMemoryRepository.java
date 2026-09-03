@@ -41,6 +41,16 @@ public class RedisStringChatMemoryRepository implements ChatMemoryRepository {
 
     @Override
     public List<Message> findByConversationId(String conversationId) {
+        return findRawByConversationId(conversationId).stream()
+                .map(RedisStringChatMemoryRepository::toMessage)
+                .toList();
+    }
+
+    /**
+     * 채팅 이력 조회 API용. findByConversationId는 TOOL 타입도 UserMessage로 뭉개서 반환하기 때문에(LLM
+     * 컨텍스트 재생용이라 그래도 됨), 원래 타입이 필요한 화면 표시용으로는 이 메서드로 원본 타입을 그대로 받는다.
+     */
+    public List<StoredMessage> findRawByConversationId(String conversationId) {
         String json = redisTemplate.opsForValue()
                 .get(KEY_PREFIX + conversationId);
 
@@ -48,11 +58,7 @@ public class RedisStringChatMemoryRepository implements ChatMemoryRepository {
             return List.of();
         }
 
-        StoredMessage[] stored = jsonMapper.readValue(json, StoredMessage[].class);
-
-        return Arrays.stream(stored)
-                .map(RedisStringChatMemoryRepository::toMessage)
-                .toList();
+        return Arrays.asList(jsonMapper.readValue(json, StoredMessage[].class));
     }
 
     @Override
@@ -79,6 +85,6 @@ public class RedisStringChatMemoryRepository implements ChatMemoryRepository {
         };
     }
 
-    private record StoredMessage(MessageType type, String text) {
+    public record StoredMessage(MessageType type, String text) {
     }
 }
