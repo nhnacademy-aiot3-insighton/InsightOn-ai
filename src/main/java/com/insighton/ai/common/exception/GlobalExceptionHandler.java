@@ -2,6 +2,7 @@ package com.insighton.ai.common.exception;
 
 import com.insighton.ai.adapter.client.exception.ActuatorNotFoundException;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
+import com.insighton.ai.domain.chatbot.exception.ConversationBusyException;
 import com.insighton.ai.domain.enginealert.exception.EngineAlertNotFoundException;
 import com.insighton.ai.domain.notification.exception.DashboardNotificationNotFoundException;
 import com.insighton.ai.domain.report.exception.ReportNotFoundException;
@@ -27,6 +28,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
                 .body(ErrorResponse.of(HttpStatus.NOT_FOUND.value(), e.getMessage()));
+    }
+
+    @ExceptionHandler(ConversationBusyException.class)
+    public ResponseEntity<ErrorResponse> handleConversationBusy(ConversationBusyException e) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(HttpStatus.CONFLICT.value(), e.getMessage()));
     }
 
     @ExceptionHandler(ForbiddenException.class)
