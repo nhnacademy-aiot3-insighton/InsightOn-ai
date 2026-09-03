@@ -5,6 +5,7 @@ import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.adapter.client.exception.ForbiddenException;
 import com.insighton.ai.common.config.RedisStringChatMemoryRepository;
 import com.insighton.ai.domain.chatbot.dto.ChatHistoryMessage;
+import com.insighton.ai.domain.chatbot.exception.ConversationBusyException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -108,12 +109,19 @@ public class ChatbotService {
         return "chat:" + groupId + ":" + userId;
     }
 
+    /**
+     * 최대 {@link #LOCK_MAX_RETRIES}회({@value #LOCK_RETRY_DELAY} 간격)까지 재시도해도 락을 못 잡으면
+     * (예: 같은 대화에 자동화 추천처럼 오래 걸리는 요청이 아직 락을 쥐고 있는 경우), 내부 재시도 신호용
+     * {@link ConversationLockedException}을 밖으로 새 나가게 두지 않고 공개 예외로 바꿔 던진다 -
+     * GlobalExceptionHandler가 이 타입을 인식해 사용자에게 친절한 메시지로 응답한다.
+     */
     private Mono<Void> acquireLock(String lockKey, String lockValue) {
         return Mono.fromCallable(() -> Boolean.TRUE.equals(
                         redisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, LOCK_TTL)))
                 .flatMap(acquired -> acquired ? Mono.<Void>empty() : Mono.error(new ConversationLockedException()))
                 .retryWhen(Retry.fixedDelay(LOCK_MAX_RETRIES, LOCK_RETRY_DELAY)
-                        .filter(ConversationLockedException.class::isInstance));
+                        .filter(ConversationLockedException.class::isInstance)
+                        .onRetryExhaustedThrow((spec, signal) -> new ConversationBusyException()));
     }
 
     private void releaseLock(String lockKey, String lockValue) {
