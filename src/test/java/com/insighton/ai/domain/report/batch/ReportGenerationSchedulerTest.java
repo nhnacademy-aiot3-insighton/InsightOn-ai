@@ -18,6 +18,7 @@ import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
+import com.insighton.ai.domain.flow.FlowActionPromptBuilder;
 import com.insighton.ai.domain.report.dto.FlowActionDecision;
 import com.insighton.ai.domain.report.dto.FlowActionDecisions;
 import com.insighton.ai.domain.report.dto.ReportCreateRequest;
@@ -61,6 +62,9 @@ class ReportGenerationSchedulerTest {
 
     @Mock
     private FlowDraftRequester flowDraftRequester;
+
+    @Mock
+    private FlowActionPromptBuilder flowActionPromptBuilder;
 
     @Mock
     private ChatClient chatClient;
@@ -367,13 +371,14 @@ class ReportGenerationSchedulerTest {
         stubCommonData(current, summary(Map.of()));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
         given(hourlyTelemetryStatService.extractPeakPatterns(current)).willReturn(List.of(pattern));
+        given(flowActionPromptBuilder.build(any(), any())).willReturn("flow 판단 프롬프트");
         given(callResponseSpec.entity(FlowActionDecisions.class)).willReturn(new FlowActionDecisions(List.of(
                 new FlowActionDecision("co2", true, ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"))));
 
         reportGenerationScheduler.generateOneReport(ReportType.MONTHLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
                 PREV_END);
 
-        verify(flowDraftRequester).requestDraft(5L, 42L, 100L, "8월 월간 3층 회의실 리포트", pattern,
+        verify(flowDraftRequester).requestDraft(5L, 42L, "8월 월간 3층 회의실 리포트 #100", pattern,
                 new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"));
     }
 
@@ -393,7 +398,7 @@ class ReportGenerationSchedulerTest {
         assertThat(promptCaptor.getValue()).contains("co2: 3시경");
 
         verify(callResponseSpec, never()).entity(FlowActionDecisions.class);
-        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any(), any());
+        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -403,13 +408,14 @@ class ReportGenerationSchedulerTest {
         stubCommonData(current, summary(Map.of()));
         given(hourlyTelemetryStatService.extractPeakPatterns(current)).willReturn(List.of(
                 new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5)));
+        given(flowActionPromptBuilder.build(any(), any())).willReturn("flow 판단 프롬프트");
         given(callResponseSpec.entity(FlowActionDecisions.class)).willReturn(new FlowActionDecisions(List.of(
                 new FlowActionDecision("co2", false, null, null, null))));
 
         reportGenerationScheduler.generateOneReport(ReportType.MONTHLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
                 PREV_END);
 
-        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any(), any());
+        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -420,13 +426,14 @@ class ReportGenerationSchedulerTest {
         given(hourlyTelemetryStatService.extractPeakPatterns(current)).willReturn(List.of(
                 new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5)));
         // 이 위치엔 AIRCON이 없는데(actuatorOnMinutes엔 VENTILATION_FAN만) LLM이 AIRCON을 골랐다고 가정
+        given(flowActionPromptBuilder.build(any(), any())).willReturn("flow 판단 프롬프트");
         given(callResponseSpec.entity(FlowActionDecisions.class)).willReturn(new FlowActionDecisions(List.of(
                 new FlowActionDecision("co2", true, ActuatorType.AIRCON, "POWER_STATUS", "ON"))));
 
         reportGenerationScheduler.generateOneReport(ReportType.MONTHLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
                 PREV_END);
 
-        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any(), any());
+        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -440,7 +447,7 @@ class ReportGenerationSchedulerTest {
         reportGenerationScheduler.generateOneReport(ReportType.MONTHLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
                 PREV_END);
 
-        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any(), any());
+        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any());
         verify(callResponseSpec, never()).entity(FlowActionDecisions.class);
     }
 
@@ -451,7 +458,7 @@ class ReportGenerationSchedulerTest {
         reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
                 PREV_END);
 
-        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any(), any());
+        verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any());
         verify(hourlyTelemetryStatService, never()).extractPeakPatterns(any());
     }
 }

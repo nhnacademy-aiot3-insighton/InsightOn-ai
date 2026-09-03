@@ -1,6 +1,7 @@
 package com.insighton.ai.domain.report.batch;
 
-import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.ACTUATOR_COMMANDS;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_END;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_START;
 
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.FlowDraftRequester;
@@ -10,6 +11,7 @@ import com.insighton.ai.adapter.client.dto.ActuatorRunLogResponse;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
+import com.insighton.ai.domain.flow.FlowActionPromptBuilder;
 import com.insighton.ai.domain.report.dto.FlowActionDecision;
 import com.insighton.ai.domain.report.dto.FlowActionDecisions;
 import com.insighton.ai.domain.report.dto.GroupComparisonSummary;
@@ -57,12 +59,6 @@ public class ReportGenerationScheduler {
 
     private static final double GROUP_COMPARISON_THRESHOLD_PERCENT = 15.0;
 
-    // SuggestionGenerationScheduler의 정기 배치 cron("0 5 9-17 * * MON-FRI")과 동일한 업무시간 기준 -
-    // flow 자동화는 이 시간대 피크에만 만든다(requestFlowDrafts 참고).
-    private static final int BUSINESS_HOUR_START = 9;
-    private static final int BUSINESS_HOUR_END = 17;
-
-
     private final HourlyTelemetryStatService hourlyTelemetryStatService;
     private final EngineAlertService engineAlertService;
     private final SuggestionLogService suggestionLogService;
@@ -70,6 +66,7 @@ public class ReportGenerationScheduler {
     private final ReportService reportService;
     private final ChatClient chatClient;
     private final FlowDraftRequester flowDraftRequester;
+    private final FlowActionPromptBuilder flowActionPromptBuilder;
 
     /**
      * 매주 월요일 00:00 실행. 직전 월~일(7일)을 이번 기간, 그 전 7일을 비교 기준(지난 기간)
@@ -197,7 +194,7 @@ public class ReportGenerationScheduler {
             return;
         }
 
-        String prompt = buildFlowActionPrompt(businessHourPatterns, presentActuatorTypes);
+        String prompt = flowActionPromptBuilder.build(businessHourPatterns, presentActuatorTypes);
         FlowActionDecisions result = chatClient.prompt().user(prompt).call().entity(FlowActionDecisions.class);
         log.info("flow 자동화 LLM 판단 결과 - locationId:{}, 판단 수:{}", locationId, result.decisions().size());
 
@@ -217,43 +214,8 @@ public class ReportGenerationScheduler {
             }
             ActuatorAction action = new ActuatorAction(decision.actuatorType(), decision.command(),
                     decision.commandValue());
-            flowDraftRequester.requestDraft(groupId, locationId, reportId, reportTitle, pattern, action);
+            flowDraftRequester.requestDraft(groupId, locationId, reportTitle + " #" + reportId, pattern, action);
         }
-    }
-
-    /**
-     * 시간대별 패턴별로 예방적 자동화 여부와 구체적인 명령을 LLM이 판단하도록 조립하는 프롬프트. 이 위치에 실제로 있는 액추에이터와 허용 명령만 보여줘서, 존재하지 않거나 지원하지 않는 조합을 LLM이
-     * 지어내지 못하게 한다(SuggestionGenerationScheduler.buildCommonContext()와 동일 원칙).
-     */
-    private String buildFlowActionPrompt(List<HourlyPeakPattern> peakPatterns, Set<String> presentActuatorTypes) {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append("당신은 스마트 오피스 자동화 규칙을 설계하는 AI입니다.\n");
-        sb.append("아래 시간대별 패턴 각각에 대해, 피크 시간 전에 미리 액추에이터를 조작하는 예방적 자동화가 적절한지 판단하세요.\n\n");
-
-        sb.append("## 시간대별 패턴\n");
-        peakPatterns.forEach(pattern ->
-                sb.append("- 지표: ").append(pattern.metric()).append(", 피크 시간: ").append(pattern.peakHour())
-                        .append("시경, 피크값: ").append(round1(pattern.peakValue())).append(", 기간 평균: ")
-                        .append(round1(pattern.baselineAvg())).append(", 평균 대비 +")
-                        .append(round1(pattern.percentAboveBaseline())).append("%\n"));
-
-        sb.append("\n## 이 위치에 실제로 있는 액추에이터와 허용 명령 (이 목록 안에서만 선택)\n");
-        ACTUATOR_COMMANDS.forEach((type, commands) -> {
-            if (!presentActuatorTypes.contains(type)) {
-                return;
-            }
-            sb.append("- ").append(type).append("\n");
-            commands.forEach((command, allowedValues) ->
-                    sb.append("  - ").append(command).append(": ").append(allowedValues).append("\n"));
-        });
-
-        sb.append("\n---\n");
-        sb.append("패턴마다 하나씩 판단하세요. actuatorType/command는 반드시 위 목록에 있는 조합만 쓰세요. ")
-                .append("이 위치에 대응할 만한 액추에이터가 없거나, 자동화보다 사용자 개입이 더 적절하다고 판단되면 ")
-                .append("automationRecommended=false로 하고 나머지 필드는 비우세요.");
-
-        return sb.toString();
     }
 
     /**

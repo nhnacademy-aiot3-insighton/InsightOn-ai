@@ -35,6 +35,14 @@ public final class ActuatorCommandVocabulary {
             "humidity", new double[]{40.0, 60.0}
     );
 
+    /**
+     * 예방적 자동화(flow) 생성 대상을 이 시간대 피크로 제한한다. 업무시간 밖(예: 새벽) 피크는 사람이 없어
+     * 자동화해도 의미가 없다. ReportGenerationScheduler(리포트 기반)와 FlowRecommendationChatTool(챗봇 기반)
+     * 둘 다 참조 - 각자 선언하면 드리프트 위험이 있어 여기 둔다.
+     */
+    public static final int BUSINESS_HOUR_START = 9;
+    public static final int BUSINESS_HOUR_END = 17;
+
     private ActuatorCommandVocabulary() {
     }
 }
