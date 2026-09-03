@@ -132,7 +132,7 @@ class FlowRecommendationChatToolTest {
     }
 
     @Test
-    void createRecommendedFlow_LLM이_자동화를_추천하면_flow_초안을_요청한다() {
+    void createRecommendedFlow_SUGGESTION_모드면_비활성_상태로_만들었다고_안내한다() {
         ToolContext toolContext = new ToolContext(Map.of("groupId", 5L, "locationId", 42L));
         PeriodTelemetrySummary current = summary(Map.of("co2", 800.0), Map.of("VENTILATION_FAN", 30.0));
         HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
@@ -140,14 +140,34 @@ class FlowRecommendationChatToolTest {
         given(hourlyTelemetryStatService.extractPeakPatterns(current)).willReturn(List.of(pattern));
         stubChatClient(new FlowActionDecisions(List.of(
                 new FlowActionDecision("co2", true, ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"))));
+        given(flowDraftRequester.requestDraft(5L, 42L, "챗봇 요청", pattern,
+                new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON")))
+                .willReturn(Optional.of("INACTIVE"));
 
         String result = flowRecommendationChatTool.createRecommendedFlow(null, toolContext);
 
-        verify(flowDraftRequester).requestDraft(5L, 42L, "챗봇 요청", pattern,
-                new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"));
         assertThat(result)
-                .startsWith("1개의 자동화를 만들었습니다(비활성 상태 - 대시보드에서 활성화해야 동작합니다).")
-                .contains("co2").contains("14시경").contains("VENTILATION_FAN").contains("ON");
+                .startsWith("1개의 자동화를 만들었습니다.")
+                .contains("co2").contains("14시경").contains("VENTILATION_FAN").contains("ON")
+                .contains("비활성 상태 - 대시보드에서 활성화 필요");
+    }
+
+    @Test
+    void createRecommendedFlow_AI_DIRECT_모드면_즉시_활성화됐다고_안내한다() {
+        ToolContext toolContext = new ToolContext(Map.of("groupId", 5L, "locationId", 42L));
+        PeriodTelemetrySummary current = summary(Map.of("co2", 800.0), Map.of("VENTILATION_FAN", 30.0));
+        HourlyPeakPattern pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
+        given(hourlyTelemetryStatService.summarizePeriod(eq(42L), any(), any())).willReturn(current);
+        given(hourlyTelemetryStatService.extractPeakPatterns(current)).willReturn(List.of(pattern));
+        stubChatClient(new FlowActionDecisions(List.of(
+                new FlowActionDecision("co2", true, ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"))));
+        given(flowDraftRequester.requestDraft(5L, 42L, "챗봇 요청", pattern,
+                new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON")))
+                .willReturn(Optional.of("ACTIVE"));
+
+        String result = flowRecommendationChatTool.createRecommendedFlow(null, toolContext);
+
+        assertThat(result).contains("즉시 활성화됨");
     }
 
     @Test

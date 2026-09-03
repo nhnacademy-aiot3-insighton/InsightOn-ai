@@ -48,7 +48,8 @@ public class FlowRecommendationChatTool {
 
     @Tool(description = "이 위치에 적절한 예방적 자동화(flow)를 AI가 최근 데이터를 분석해서 직접 만든다. "
             + "사용자가 세부 조건을 지정하지 않고 '이 방 자동화 만들어줘' 같이 요청하면 이 도구를 쓴다. "
-            + "업무시간(9~17시) 패턴만 대상으로 하고, 항상 비활성 상태로 생성된다(대시보드에서 활성화 필요).")
+            + "업무시간(9~17시) 패턴만 대상으로 하고, 위치가 AI_DIRECT 모드면 즉시 활성화되고 "
+            + "SUGGESTION 모드면 비활성 상태로 생성돼 대시보드에서 활성화해야 한다(결과 문구에 실제 상태가 포함됨).")
     public String createRecommendedFlow(
             @ToolParam(description = "대상 위치 이름. 안 주면 대화의 현재 위치 사용", required = false) String locationName,
             ToolContext toolContext) {
@@ -102,20 +103,24 @@ public class FlowRecommendationChatTool {
             }
             ActuatorAction action = new ActuatorAction(decision.actuatorType(), decision.command(),
                     decision.commandValue());
-            flowDraftRequester.requestDraft(groupId, locationId, "챗봇 요청", pattern, action);
-            summaries.add(summarize(pattern, action));
+            Optional<String> status = flowDraftRequester.requestDraft(groupId, locationId, "챗봇 요청", pattern, action);
+            summaries.add(summarize(pattern, action, status));
         }
 
         if (summaries.isEmpty()) {
             return "분석 결과 지금 이 위치에 추가로 필요한 자동화가 없습니다.";
         }
-        return summaries.size() + "개의 자동화를 만들었습니다(비활성 상태 - 대시보드에서 활성화해야 동작합니다).\n"
-                + String.join("\n", summaries);
+        return summaries.size() + "개의 자동화를 만들었습니다.\n" + String.join("\n", summaries);
     }
 
-    private String summarize(HourlyPeakPattern pattern, ActuatorAction action) {
-        return "- %s이(가) %d시경 평균보다 %.0f%% 높게 반복 관측돼, %s의 %s을(를) %s(으)로 맞추는 자동화를 만들었습니다."
+    // status: Rule Engine이 실제로 저장한 상태(ACTIVE/INACTIVE) - 위치가 AI_DIRECT 모드면 즉시 ACTIVE로
+    // 자동 활성화되므로, "항상 비활성"이라고 단정하면 안 됨. 요청 자체가 실패했으면(빈 값) 상태를 알 수 없음.
+    private String summarize(HourlyPeakPattern pattern, ActuatorAction action, Optional<String> status) {
+        String activationNote = status
+                .map(s -> "ACTIVE".equals(s) ? " (즉시 활성화됨)" : " (비활성 상태 - 대시보드에서 활성화 필요)")
+                .orElse(" (생성 여부 확인 필요 - Rule Engine 요청 실패)");
+        return "- %s이(가) %d시경 평균보다 %.0f%% 높게 반복 관측돼, %s의 %s을(를) %s(으)로 맞추는 자동화를 만들었습니다.%s"
                 .formatted(pattern.metric(), pattern.peakHour(), pattern.percentAboveBaseline(),
-                        action.actuatorType(), action.command(), action.commandValue());
+                        action.actuatorType(), action.command(), action.commandValue(), activationNote);
     }
 }

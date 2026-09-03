@@ -51,7 +51,7 @@ class FlowDraftRequesterTest {
 
         FlowDraftCreateRequest request = requestCaptor.getValue();
         assertThat(request.locationId()).isEqualTo(42L);
-        assertThat(request.name()).isEqualTo("[AI] co2 예방 자동화");
+        assertThat(request.name()).isEqualTo("[AI] co2 예방 자동화 (12~15시)");
         assertThat(request.description())
                 .startsWith("[AI 자동 생성] 8월 월간 3층 회의실 리포트 #231 기준")
                 .contains("co2");
@@ -97,10 +97,51 @@ class FlowDraftRequesterTest {
 
         assertThat(requestCaptor.getAllValues())
                 .extracting(FlowDraftCreateRequest::name)
-                .containsExactly("[AI] co2 예방 자동화", "[AI] co2 예방 자동화");
+                .containsExactly("[AI] co2 예방 자동화 (12~15시)", "[AI] co2 예방 자동화 (12~15시)");
         assertThat(requestCaptor.getAllValues())
                 .extracting(FlowDraftCreateRequest::description)
                 .anySatisfy(description -> assertThat(description).contains("챗봇 요청"));
+    }
+
+    @Test
+    void requestDraft_피크시간이_다른_슬롯이면_이름이_달라져_공존한다() {
+        // 13시 피크 자동화가 co2를 해결하면 다음번엔 15시가 최고점으로 잡히는데, 이름이 지표 하나로만
+        // 고정돼 있으면 15시 요청이 13시 flow를 갱신(archive)해버려서 무한 반복(진동)에 빠진다.
+        // 시간대를 이름에 넣어 서로 다른 슬롯이면 별개 flow로 공존하게 한다.
+        given(ruleEngineClient.createAiDraft(anyLong(), any()))
+                .willReturn(new FlowDraftResponse(1L, "INACTIVE", null));
+        ActuatorAction action = new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON");
+
+        flowDraftRequester.requestDraft(5L, 42L, SOURCE_DESCRIPTION,
+                new HourlyPeakPattern("co2", 13, 1100.0, 800.0, 37.5), action);
+        flowDraftRequester.requestDraft(5L, 42L, SOURCE_DESCRIPTION,
+                new HourlyPeakPattern("co2", 15, 1100.0, 800.0, 37.5), action);
+
+        ArgumentCaptor<FlowDraftCreateRequest> requestCaptor = ArgumentCaptor.forClass(FlowDraftCreateRequest.class);
+        verify(ruleEngineClient, times(2)).createAiDraft(anyLong(), requestCaptor.capture());
+
+        assertThat(requestCaptor.getAllValues())
+                .extracting(FlowDraftCreateRequest::name)
+                .containsExactly("[AI] co2 예방 자동화 (12~15시)", "[AI] co2 예방 자동화 (15~18시)");
+    }
+
+    @Test
+    void requestDraft_피크시간이_같은_슬롯이면_이름이_같다() {
+        given(ruleEngineClient.createAiDraft(anyLong(), any()))
+                .willReturn(new FlowDraftResponse(1L, "INACTIVE", null));
+        ActuatorAction action = new ActuatorAction(ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON");
+
+        flowDraftRequester.requestDraft(5L, 42L, SOURCE_DESCRIPTION,
+                new HourlyPeakPattern("co2", 12, 1100.0, 800.0, 37.5), action);
+        flowDraftRequester.requestDraft(5L, 42L, SOURCE_DESCRIPTION,
+                new HourlyPeakPattern("co2", 13, 1100.0, 800.0, 37.5), action);
+
+        ArgumentCaptor<FlowDraftCreateRequest> requestCaptor = ArgumentCaptor.forClass(FlowDraftCreateRequest.class);
+        verify(ruleEngineClient, times(2)).createAiDraft(anyLong(), requestCaptor.capture());
+
+        assertThat(requestCaptor.getAllValues())
+                .extracting(FlowDraftCreateRequest::name)
+                .containsExactly("[AI] co2 예방 자동화 (12~15시)", "[AI] co2 예방 자동화 (12~15시)");
     }
 
     @Test

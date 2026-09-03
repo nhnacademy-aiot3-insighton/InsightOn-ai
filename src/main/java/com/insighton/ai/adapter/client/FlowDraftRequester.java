@@ -1,5 +1,8 @@
 package com.insighton.ai.adapter.client;
 
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_END;
+import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSINESS_HOUR_START;
+
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftCreateRequest;
@@ -11,6 +14,7 @@ import feign.FeignException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -29,10 +33,17 @@ import org.springframework.stereotype.Component;
 public class FlowDraftRequester {
 
     private static final int PREVENTIVE_LEAD_HOURS = 1;
+    // ponytail: 정적 3시간 버킷이라 경계에 걸치는 케이스(예: 11시/12시)는 여전히 다른 슬롯으로 갈릴 수 있음.
+    // 완전한 해법은 AI가 기존 flow의 실제 트리거 시각과 비교하는 것이지만 Rule Engine에 조회 API가 없어서
+    // 보류(rule-engine-flow-duplicate-check-request §3.3 참고). 진동(oscillation) 문제 해소가 우선.
+    private static final int TIME_SLOT_HOURS = 3;
 
     private final RuleEngineClient ruleEngineClient;
 
-    public void requestDraft(Long groupId, Long locationId, String sourceDescription,
+    /**
+     * @return 생성/갱신된 flow의 실제 상태(ACTIVE/INACTIVE, Rule Engine의 AutoControlMode 판단 결과). 요청 실패 시 빈 값.
+     */
+    public Optional<String> requestDraft(Long groupId, Long locationId, String sourceDescription,
                              HourlyPeakPattern pattern, ActuatorAction action) {
         try {
             String cron = buildPreventiveCron(pattern.peakHour());
@@ -64,12 +75,15 @@ public class FlowDraftRequester {
                 log.info("Rule Engine flow 초안 생성 요청 완료 - flowId:{}, locationId:{}, metric:{}, status:{}",
                         response.flowId(), locationId, pattern.metric(), response.status());
             }
+            return Optional.ofNullable(response.status());
         } catch (FeignException e) {
             log.warn("Rule Engine flow 초안 생성 요청 실패, 건너뜀 - locationId:{}, metric:{}, status:{}, body:{}",
                     locationId, pattern.metric(), e.status(), e.contentUTF8(), e);
+            return Optional.empty();
         } catch (Exception e) {
             log.warn("Rule Engine flow 초안 생성 요청 실패, 건너뜀 - locationId:{}, metric:{}",
                     locationId, pattern.metric(), e);
+            return Optional.empty();
         }
     }
 
@@ -87,12 +101,21 @@ public class FlowDraftRequester {
 
     // "[AI] " 접두어는 Rule Engine의 FlowService.createAiDraft()가 강제한다(이 접두어가 없으면
     // InvalidAiDraftNameException) - AI가 만든 flow인지 이름만 보고 구분하려는 목적이라 여기서 빼면 안 됨.
-    // 이름에 reportId 등 호출마다 달라지는 값을 안 넣는다 - 예전엔 매번 새 초안을 만들도록 일부러 유일하게
-    // 했었는데, 이제 Rule Engine의 createAiDraft가 이름이 달라도 실질적으로 같은 동작(트리거 시각·액추에이터
-    // 명령)이면 근사 중복으로 판단해 기존 걸 archive하고 대체해주므로 이름 쪽에서 유일성을 신경 쓸 필요가 없다
-    // (rule-engine-flow-duplicate-check-request 참고).
+    // 이름에 reportId 등 호출마다 달라지는 값은 안 넣는다 - 대신 결정론적인 시간대(timeSlot)를 붙인다.
+    // 지표 하나에 자동화가 최대 1개라고 가정하면 안 되는 이유: 이 자동화가 성공해서 13시 피크를 없애면
+    // 다음 분석 땐 15시가 새 최고점으로 잡히는데, 이름이 지표 하나로만 고정돼 있으면 15시 flow가 13시
+    // flow를 갱신(archive)해버리고, 13시 문제는 다시 재발 → 13시가 다시 최고점 → 무한 반복(진동)에
+    // 빠진다. 시간대를 이름에 넣어 "13시 자동화"와 "15시 자동화"가 서로 다른 flow로 공존하게 한다
+    // (rule-engine-flow-duplicate-check-request §3 참고).
     private String buildName(HourlyPeakPattern pattern) {
-        return "[AI] " + pattern.metric() + " 예방 자동화";
+        return "[AI] " + pattern.metric() + " 예방 자동화 (" + timeSlotLabel(pattern.peakHour()) + ")";
+    }
+
+    private String timeSlotLabel(int peakHour) {
+        int offset = peakHour - BUSINESS_HOUR_START;
+        int slotStart = BUSINESS_HOUR_START + (offset / TIME_SLOT_HOURS) * TIME_SLOT_HOURS;
+        int slotEnd = Math.min(slotStart + TIME_SLOT_HOURS, BUSINESS_HOUR_END + 1);
+        return slotStart + "~" + slotEnd + "시";
     }
 
     // sourceDescription: 어디서 이 판단이 나왔는지(리포트 제목+ID, 또는 "챗봇 요청" 등) 사람이 읽을 텍스트로만 남김

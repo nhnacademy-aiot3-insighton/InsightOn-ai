@@ -11,11 +11,14 @@ import static org.mockito.Mockito.verify;
 
 import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.FlowDraftRequester;
+import com.insighton.ai.adapter.client.RuleEngineClient;
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorRunLogResponse;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
+import com.insighton.ai.adapter.client.dto.FlowSummaryResponse;
 import com.insighton.ai.adapter.client.dto.LocationResponse;
+import com.insighton.ai.adapter.client.dto.WeatherResponse;
 import com.insighton.ai.domain.enginealert.dto.EngineAlertSummary;
 import com.insighton.ai.domain.enginealert.service.EngineAlertService;
 import com.insighton.ai.domain.flow.FlowActionPromptBuilder;
@@ -67,6 +70,9 @@ class ReportGenerationSchedulerTest {
     private FlowActionPromptBuilder flowActionPromptBuilder;
 
     @Mock
+    private RuleEngineClient ruleEngineClient;
+
+    @Mock
     private ChatClient chatClient;
 
     @Mock
@@ -113,6 +119,7 @@ class ReportGenerationSchedulerTest {
                 new LocationResponse(42L, "3층 회의실", 5L, AutoControlMode.SUGGESTION));
         given(hourlyTelemetryStatService.summarizePeriod(42L, PERIOD_START, PERIOD_END)).willReturn(current);
         given(hourlyTelemetryStatService.summarizePeriod(42L, PREV_START, PREV_END)).willReturn(previous);
+        given(ruleEngineClient.findFlows(5L, 42L)).willReturn(List.of());
         given(engineAlertService.summarizePeriod(42L, PERIOD_START, PERIOD_END))
                 .willReturn(new EngineAlertSummary(0, 0, List.of()));
         given(suggestionLogService.summarizePeriod(42L, PERIOD_START, PERIOD_END))
@@ -460,5 +467,80 @@ class ReportGenerationSchedulerTest {
 
         verify(flowDraftRequester, never()).requestDraft(any(), any(), any(), any(), any());
         verify(hourlyTelemetryStatService, never()).extractPeakPatterns(any());
+    }
+
+    @Test
+    void generateOneReport_AI가_만든_flow가_있으면_관리중인_자동화_섹션에_날씨와_함께_포함된다() {
+        stubCommonData(summary(Map.of()), summary(Map.of()));
+        given(ruleEngineClient.findFlows(5L, 42L)).willReturn(List.of(
+                new FlowSummaryResponse(1L, "[AI] co2 예방 자동화 (12~15시)", "co2가 13시경 반복 관측돼 만든 자동화", "ACTIVE")));
+        given(coreClient.getWeather(5L)).willReturn(new WeatherResponse(
+                5.0, "맑음", "없음", 40.0, 8.0, 2.0, "보통", 6.0, "맑음", "없음", 42.0, 25.0, 18.0));
+
+        reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue())
+                .contains("## 관리 중인 자동화")
+                .contains("[AI] co2 예방 자동화 (12~15시)")
+                .contains("ACTIVE")
+                .contains("co2가 13시경 반복 관측돼 만든 자동화")
+                .contains("현재 실외 기온: 5.0°C")
+                .contains("4~10일 후 평균 기온 전망: 18.0~25.0°C");
+    }
+
+    @Test
+    void generateOneReport_AI_접두어_없는_flow는_관리중인_자동화_섹션에서_제외된다() {
+        stubCommonData(summary(Map.of()), summary(Map.of()));
+        given(ruleEngineClient.findFlows(5L, 42L)).willReturn(List.of(
+                new FlowSummaryResponse(1L, "사용자가 만든 자동화", "설명", "ACTIVE")));
+
+        reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue()).doesNotContain("## 관리 중인 자동화");
+        verify(coreClient, never()).getWeather(any());
+    }
+
+    @Test
+    void generateOneReport_날씨_조회가_실패해도_관리중인_자동화_섹션은_날씨_없이_생성된다() {
+        stubCommonData(summary(Map.of()), summary(Map.of()));
+        given(ruleEngineClient.findFlows(5L, 42L)).willReturn(List.of(
+                new FlowSummaryResponse(1L, "[AI] co2 예방 자동화 (12~15시)", "co2가 13시경 반복 관측돼 만든 자동화", "ACTIVE")));
+        given(coreClient.getWeather(5L)).willThrow(new RuntimeException("Core 연결 실패"));
+
+        reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(requestSpec).user(promptCaptor.capture());
+        assertThat(promptCaptor.getValue())
+                .contains("## 관리 중인 자동화")
+                .doesNotContain("현재 실외 기온");
+    }
+
+    @Test
+    void generateOneReport_flow_목록_조회가_실패해도_리포트_생성은_계속된다() {
+        stubChatClient();
+        given(coreClient.getLocation(42L)).willReturn(
+                new LocationResponse(42L, "3층 회의실", 5L, AutoControlMode.SUGGESTION));
+        given(hourlyTelemetryStatService.summarizePeriod(42L, PERIOD_START, PERIOD_END)).willReturn(summary(Map.of()));
+        given(hourlyTelemetryStatService.summarizePeriod(42L, PREV_START, PREV_END)).willReturn(summary(Map.of()));
+        given(ruleEngineClient.findFlows(5L, 42L)).willThrow(new RuntimeException("Rule Engine 연결 실패"));
+        given(engineAlertService.summarizePeriod(42L, PERIOD_START, PERIOD_END))
+                .willReturn(new EngineAlertSummary(0, 0, List.of()));
+        given(suggestionLogService.summarizePeriod(42L, PERIOD_START, PERIOD_END))
+                .willReturn(new SuggestionSummary(0, 0, 0, 0));
+        given(coreClient.getActuatorRunLogs(eq(List.of(42L)), eq(PERIOD_START), eq(PERIOD_END))).willReturn(List.of());
+        given(reportService.createReport(any())).willReturn(savedReport(100L));
+
+        reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        verify(reportService).createReport(any());
     }
 }

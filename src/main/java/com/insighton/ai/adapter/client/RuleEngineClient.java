@@ -2,7 +2,10 @@ package com.insighton.ai.adapter.client;
 
 import com.insighton.ai.adapter.client.dto.FlowDraftCreateRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftResponse;
+import com.insighton.ai.adapter.client.dto.FlowSummaryResponse;
+import java.util.List;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,4 +20,12 @@ public interface RuleEngineClient {
     @PostMapping("/flows")
     FlowDraftResponse createAiDraft(@RequestParam("groupId") Long groupId,
                                     @RequestBody FlowDraftCreateRequest request);
+
+    /**
+     * 리포트의 "관리 중인 자동화" 섹션용 - 위치의 flow 목록을 조회한다(신규 요청, rule-engine-flow-duplicate-check-request 참고).
+     * AI가 만든 것과 유저가 직접 만든 것 구분 없이 다 내려오므로, "[AI] " 접두어로 시작하는 것만 AI 쪽에서 걸러 쓴다.
+     */
+    @GetMapping("/flows")
+    List<FlowSummaryResponse> findFlows(@RequestParam("groupId") Long groupId,
+                                        @RequestParam("locationId") Long locationId);
 }
