@@ -53,4 +53,13 @@ public interface SuggestionLogRepository extends JpaRepository<SuggestionLog, Lo
                                        @Param("to") OffsetDateTime to);
 
     List<SuggestionLog> findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(Long locationId, Pageable pageable);
+
+    /**
+     * "대기 중일 때만 수락으로 바꾼다"는 조건부(CAS) 업데이트. 이 쿼리 자체가 원자적이라, 같은 제안에
+     * 동시/중복 수락 요청이 들어와도 실제로 대기(null)→수락(true)으로 바뀌는 건 정확히 한쪽뿐이다 -
+     * 영향 행 수(0 또는 1)로 "이미 처리됐는지"를 판단한다(SuggestionLogServiceImpl.accept 참고).
+     */
+    @Modifying
+    @Query("update SuggestionLog s set s.isAccepted = true where s.suggestionLogId = :id and s.isAccepted is null")
+    int acceptIfPending(@Param("id") Long suggestionLogId);
 }

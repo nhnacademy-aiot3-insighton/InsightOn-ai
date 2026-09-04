@@ -61,18 +61,29 @@ public class ChatController implements ChatApi {
                     }
                 });
 
-        Disposable subscription = chatbotService.streamChat(groupId, userId, locationId, request.message())
-                .subscribe(
-                        token -> {
-                            try {
-                                emitter.send(token);
-                            } catch (IOException e) {
-                                emitter.complete();
-                            }
-                        },
-                        error -> completeWithSseError(emitter, error),
-                        emitter::complete
-                );
+        Disposable subscription;
+        try {
+            // streamChat()은 locationId 소유권 검증(ForbiddenException 등)을 구독 전에
+            // 동기적으로 수행한다 - 여기서 던지면 아래 onCompletion/onTimeout/onError 등록까지
+            // 못 가서 위에서 이미 시작한 heartbeat가 dispose될 기회 없이 영원히 남는다.
+            subscription = chatbotService.streamChat(groupId, userId, locationId, request.message())
+                    .subscribe(
+                            token -> {
+                                try {
+                                    emitter.send(token);
+                                } catch (IOException e) {
+                                    emitter.complete();
+                                }
+                            },
+                            error -> completeWithSseError(emitter, error),
+                            emitter::complete
+                    );
+        } catch (RuntimeException e) {
+            // ForbiddenException 같은 건 여기서 SSE로 흡수하면 안 된다 - GlobalExceptionHandler가
+            // 정상적으로 403 등을 응답하도록 그대로 다시 던지고, 하트비트만 정리한다.
+            heartbeat.dispose();
+            throw e;
+        }
 
         emitter.onCompletion(() -> {
             subscription.dispose();

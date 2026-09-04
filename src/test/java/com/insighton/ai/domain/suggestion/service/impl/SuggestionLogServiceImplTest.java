@@ -27,6 +27,7 @@ import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
 import com.insighton.ai.domain.suggestion.entity.SuggestionLog;
+import com.insighton.ai.domain.suggestion.exception.SuggestionAlreadyProcessedException;
 import com.insighton.ai.domain.suggestion.exception.SuggestionLogNotFoundException;
 import com.insighton.ai.domain.suggestion.repository.SuggestionLogRepository;
 import jakarta.validation.ConstraintViolation;
@@ -183,6 +184,7 @@ class SuggestionLogServiceImplTest {
     void accept_액추에이터_명령이_있으면_Core를_호출한다() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{\"actuatorType\":\"AIRCON\"}", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
+        given(suggestionLogRepository.acceptIfPending(1L)).willReturn(1);
         ActionPayload actionPayload = new ActionPayload(42L,
                 List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON")));
         given(jsonMapper.readValue(anyString(), eq(ActionPayload.class))).willReturn(actionPayload);
@@ -198,6 +200,7 @@ class SuggestionLogServiceImplTest {
     void accept_액추에이터_명령이_없으면_Core를_호출하지_않는다() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{}", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
+        given(suggestionLogRepository.acceptIfPending(1L)).willReturn(1);
         ActionPayload actionPayload = new ActionPayload(42L, List.of());
         given(jsonMapper.readValue(anyString(), eq(ActionPayload.class))).willReturn(actionPayload);
 
@@ -211,6 +214,7 @@ class SuggestionLogServiceImplTest {
     void accept_actionPayload_파싱_실패하면_예외() {
         SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "잘못된 JSON", null);
         given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
+        given(suggestionLogRepository.acceptIfPending(1L)).willReturn(1);
         given(jsonMapper.readValue(anyString(), eq(ActionPayload.class)))
                 .willThrow(new RuntimeException("파싱 실패"));
 
@@ -226,6 +230,18 @@ class SuggestionLogServiceImplTest {
 
         assertThatThrownBy(() -> suggestionLogService.accept(999L, 100L))
                 .isInstanceOf(SuggestionLogNotFoundException.class);
+    }
+
+    @Test
+    void accept_이미_처리됐으면_예외를_던지고_Core를_호출하지_않는다() {
+        SuggestionLog suggestion = newSuggestion(1L, 5L, 42L, "{\"actuatorType\":\"AIRCON\"}", true);
+        given(suggestionLogRepository.findById(1L)).willReturn(Optional.of(suggestion));
+        given(suggestionLogRepository.acceptIfPending(1L)).willReturn(0);
+
+        assertThatThrownBy(() -> suggestionLogService.accept(1L, 100L))
+                .isInstanceOf(SuggestionAlreadyProcessedException.class);
+
+        verify(actuatorCommandExecutor, never()).execute(any(), any(), any(), any());
     }
 
     @Test
