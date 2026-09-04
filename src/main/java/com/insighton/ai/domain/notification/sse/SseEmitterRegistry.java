@@ -61,9 +61,12 @@ public class SseEmitterRegistry {
     }
 
     /**
-     * 20초마다 모든 그룹의 열려있는 커넥션에 하트비트를 보내, 중간 인프라(Gateway/로드밸런서)가 유휴 연결로 판단해서 끊어버리는 걸 방지 전송 실패한 커넥션은 죽은 것으로 보고 정리
+     * 5초마다 모든 그룹의 열려있는 커넥션에 하트비트를 보내, 중간 인프라(Gateway/로드밸런서/Cloudflare)가 유휴
+     * 연결로 판단해서 끊어버리는 걸 방지 전송 실패한 커넥션은 죽은 것으로 보고 정리. 이 경로는 프론트 릴레이를
+     * 한 번 더 거쳐 Cloudflare까지 가는 2홉 구조라 침묵 구간에 취약함 - 릴레이 없이 직접 서빙해서 안 끊기던
+     * 대시보드 센서 위젯(front TelemetryHeartbeatScheduler)의 5초 주기에 맞춘다.
      */
-    @Scheduled(fixedRate = 20000)
+    @Scheduled(fixedRate = 5000)
     public void sendHeartbeat() {
         emittersByGroup.forEach((groupId, emitters) -> {
             for (SseEmitter emitter : emitters) {

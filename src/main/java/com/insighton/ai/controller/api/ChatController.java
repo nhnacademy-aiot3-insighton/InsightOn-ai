@@ -35,7 +35,9 @@ public class ChatController implements ChatApi {
         return chatbotService.getHistory(groupId, userId);
     }
 
-    private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(15);
+    // 프론트 릴레이(HttpClient)를 거쳐 Cloudflare까지 가는 2홉 구조라 침묵 구간에 더 취약함 - 릴레이 없이
+    // 직접 서빙해서 끊기지 않던 대시보드 센서 위젯(TelemetryHeartbeatScheduler)의 5초 주기에 맞춘다.
+    private static final Duration HEARTBEAT_INTERVAL = Duration.ofSeconds(5);
 
     @Override
     @PostMapping
