@@ -11,6 +11,7 @@ import org.springframework.amqp.rabbit.annotation.Exchange;
 import org.springframework.amqp.rabbit.annotation.Queue;
 import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -35,7 +36,11 @@ public class DashboardNotificationBroadcastListener {
 
         for (SseEmitter emitter : emitters) {
             try {
-                emitter.send(SseEmitter.event().name("notification").data(event.notification()));
+                // data(Object)만 쓰면 응답 Content-Type(text/event-stream)에 맞는 컨버터를 찾다가
+                // 실패한다(RabbitMQ 왕복 중 타입 정보가 유실돼 LinkedHashMap으로 오는 경우 특히) -
+                // JSON으로 직렬화하라고 명시해서 실제 타입과 무관하게 항상 되게 한다.
+                emitter.send(SseEmitter.event().name("notification")
+                        .data(event.notification(), MediaType.APPLICATION_JSON));
             } catch (IOException e) {
                 sseEmitterRegistry.sseRemove(event.groupId(), emitter);
             }

@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +23,7 @@ import reactor.core.publisher.Flux;
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
+@Slf4j
 public class ChatController implements ChatApi {
 
     private final ChatbotService chatbotService;
@@ -65,10 +67,10 @@ public class ChatController implements ChatApi {
                             try {
                                 emitter.send(token);
                             } catch (IOException e) {
-                                emitter.completeWithError(e);
+                                emitter.complete();
                             }
                         },
-                        emitter::completeWithError,
+                        error -> completeWithSseError(emitter, error),
                         emitter::complete
                 );
 
@@ -86,5 +88,22 @@ public class ChatController implements ChatApi {
         });
 
         return emitter;
+    }
+
+    /**
+     * completeWithError로 넘기면, 이미 text/event-stream으로 커밋된 응답에 Spring이 기본 에러
+     * 바디(Map)를 쓰려다 실패하는 소음만 남는다(HttpMessageNotWritableException: No converter
+     * for LinkedHashMap). 대신 SSE data 이벤트로 에러 메시지를 직접 보내고 정상 종료해서, 프론트
+     * relay()가 그대로 받아 사용자에게 보여줄 수 있게 한다 - 실제 원인(LLM 호출 실패 등)은 서버
+     * 로그로 남긴다.
+     */
+    private void completeWithSseError(SseEmitter emitter, Throwable error) {
+        log.error("챗봇 응답 생성 실패", error);
+        try {
+            emitter.send("죄송합니다, 응답을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.");
+        } catch (IOException ignored) {
+            // 이미 끊긴 연결 - 보낼 곳이 없으니 무시
+        }
+        emitter.complete();
     }
 }
