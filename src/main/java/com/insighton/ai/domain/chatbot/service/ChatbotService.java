@@ -18,6 +18,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -30,6 +31,12 @@ public class ChatbotService {
     private static final Duration LOCK_TTL = Duration.ofSeconds(60);
     private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(200);
     private static final long LOCK_MAX_RETRIES = 50;
+    // createRecommendedFlow처럼 도구 안에서 LLM을 한 번 더 부르고 Rule Engine을 지표마다 순차 호출하는
+    // 경로는 지표 수에 따라 LOCK_TTL(60s)보다 오래 걸릴 수 있다 - 갱신 없이 고정 TTL만 믿으면 처리 중에
+    // 락이 만료돼 다른 요청이 같은 conversationId에 동시에 끼어들 수 있다(ChatMemory read-modify-write
+    // 경합, 이 락을 만든 원래 목적 자체가 깨짐). TTL의 1/3 주기로 갱신해 "아직 살아서 처리 중"인 동안은
+    // 만료 걱정 없이, 인스턴스가 죽어서 갱신이 끊기면 최대 TTL만큼 뒤에 자연 해제되게 한다.
+    private static final Duration LOCK_RENEWAL_INTERVAL = LOCK_TTL.dividedBy(3);
 
     private static final String SYSTEM_PROMPT_TEMPLATE = """
             당신은 InsightOn IoT 관제 플랫폼의 챗봇입니다. 오늘은 %s입니다.
@@ -92,9 +99,17 @@ public class ChatbotService {
         String lockKey = LOCK_KEY_PREFIX + conversationId;
         String lockValue = UUID.randomUUID().toString();
 
+        // 처리가 LOCK_TTL보다 길어져도 락이 먼저 만료돼버리지 않도록 주기적으로 갱신한다 - 아직 이
+        // 요청이 쥔 락일 때만 연장하도록(lockValue 일치 확인) renewLock() 안에서 가드한다.
+        Disposable renewal = Flux.interval(LOCK_RENEWAL_INTERVAL)
+                .subscribe(tick -> renewLock(lockKey, lockValue));
+
         return acquireLock(lockKey, lockValue)
                 .thenMany(chatFlux)
-                .doFinally(signalType -> releaseLock(lockKey, lockValue));
+                .doFinally(signalType -> {
+                    renewal.dispose();
+                    releaseLock(lockKey, lockValue);
+                });
     }
 
     /**
@@ -132,6 +147,16 @@ public class ChatbotService {
     private void releaseLock(String lockKey, String lockValue) {
         if (lockValue.equals(redisTemplate.opsForValue().get(lockKey))) {
             redisTemplate.delete(lockKey);
+        }
+    }
+
+    /**
+     * 이 요청이 지금도 락을 쥐고 있을 때만(lockValue 일치) TTL을 연장한다 - 이미 만료돼 다른 요청이
+     * 새로 잡은 락을 실수로 연장하면 그 요청의 처리 시간과 무관하게 락이 계속 살아남는 문제가 생긴다.
+     */
+    private void renewLock(String lockKey, String lockValue) {
+        if (lockValue.equals(redisTemplate.opsForValue().get(lockKey))) {
+            redisTemplate.expire(lockKey, LOCK_TTL);
         }
     }
 
