@@ -15,6 +15,7 @@ import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
 import com.insighton.ai.domain.suggestion.entity.SuggestionLog;
+import com.insighton.ai.domain.suggestion.exception.SuggestionAlreadyProcessedException;
 import com.insighton.ai.domain.suggestion.exception.SuggestionLogNotFoundException;
 import com.insighton.ai.domain.suggestion.repository.SuggestionLogRepository;
 import com.insighton.ai.domain.suggestion.service.SuggestionLogService;
@@ -157,10 +158,16 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
      * AI 제안 수락 처리(is_accepted=true). actionPayload에 실제 액추에이터 명령이 담겨있으면 Core 제어 API를 호출해 즉시 실행하고, 창문 개방처럼 조언만 있는
      * 제안(actuatorType 없음)이면 수락 처리만 하고 Core 호출은 생략한다.
      *
+     * <p>동시/중복 수락 요청이 둘 다 물리 명령을 실행하는 걸 막기 위해, "대기 중일 때만 수락으로"
+     * 조건부 업데이트({@link SuggestionLogRepository#acceptIfPending})를 먼저 실행하고 영향 행이
+     * 정확히 1일 때만 Core를 호출한다. DB 트랜잭션은 롤백돼도 이미 나간 물리 명령은 롤백되지
+     * 않으므로, 애초에 같은 제안이 두 번 실행되는 경로 자체를 막는 게 목적이다.
+     *
      * @param suggestionLogId 제안 로그 ID
      * @param userId          요청자 유저 ID
      * @return 수락 처리된 제안 로그 응답
-     * @throws SuggestionLogNotFoundException 해당 ID의 제안 로그 미존재 시
+     * @throws SuggestionLogNotFoundException     해당 ID의 제안 로그 미존재 시
+     * @throws SuggestionAlreadyProcessedException 이미 수락/거절 처리된 제안인 경우
      */
     @Transactional
     @Override
@@ -170,6 +177,10 @@ public class SuggestionLogServiceImpl implements SuggestionLogService {
 
         groupAuthorizationService.requireRole(suggestionLog.getGroupId(), userId, GroupRole.MANAGER);
 
+        int updated = suggestionLogRepository.acceptIfPending(suggestionLogId);
+        if (updated != 1) {
+            throw new SuggestionAlreadyProcessedException(suggestionLogId);
+        }
         suggestionLog.changeAccepted(true);
 
         ActionPayload actionPayload = parseActionPayload(suggestionLog.getActionPayload());

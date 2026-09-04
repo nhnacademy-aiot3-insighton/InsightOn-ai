@@ -5,6 +5,7 @@ import com.insighton.ai.adapter.client.LocationResolver;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
 import com.insighton.ai.adapter.client.dto.ActuatorType;
 import com.insighton.ai.adapter.client.dto.CallerService;
+import com.insighton.ai.adapter.client.exception.InvalidActuatorCommandException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.chat.model.ToolContext;
@@ -54,8 +55,13 @@ public class ActuatorChatTool {
             return NO_LOCATION_MESSAGE;
         }
 
-        coreClient.executeActuatorCommand(groupId, locationId,
-                ActuatorCommandRequest.of(actuatorType.name(), command, commandValue, CallerService.AI_SYSTEM));
+        try {
+            coreClient.executeActuatorCommand(groupId, locationId,
+                    ActuatorCommandRequest.of(actuatorType.name(), command, commandValue, CallerService.AI_SYSTEM));
+        } catch (InvalidActuatorCommandException e) {
+            return "허용되지 않은 명령 조합입니다: " + actuatorType + " " + command + "=" + commandValue
+                    + ". 안내된 조합과 값 범위 안에서 다시 요청해주세요.";
+        }
 
         return "조작 완료: " + actuatorType + " " + command + "=" + commandValue;
     }

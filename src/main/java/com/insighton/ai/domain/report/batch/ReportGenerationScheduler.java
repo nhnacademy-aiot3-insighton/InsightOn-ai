@@ -522,10 +522,13 @@ public class ReportGenerationScheduler {
                 .append("지표는 텍스트로 짧게 언급하세요. 형식 예시(지표명·단위·수치만 실제 값으로 바꿔서 그대로 따르세요):\n")
                 .append("```mermaid\nxychart-beta\n    title \"온도 지난 기간 대비\"\n")
                 .append("    x-axis [\"지난 기간\", \"이번 기간\"]\n    y-axis \"온도 (°C)\"\n    bar [22.5, 24.1]\n```")
-                .append(hasComparison ? " 6) 그룹 내 비교는 표는 그대로 두되, 그룹 평균과 차이가 가장 큰 지표 1개를 "
-                        + "표 위에 Mermaid xychart-beta 막대그래프로 추가하세요(이 위치 vs 그룹 평균, 막대 2개). "
-                        + "형식 예시:\n```mermaid\nxychart-beta\n    title \"CO2 그룹 내 비교\"\n"
-                        + "    x-axis [\"이 위치\", \"그룹 평균\"]\n    y-axis \"CO2 (ppm)\"\n    bar [850.0, 620.0]\n```" : "")
+                .append(hasComparison ? " 6) 그룹 내 비교는 표는 그대로 두되, ±15% 이상 차이나는 지표·액추에이터 "
+                        + "전부를 하나의 Mermaid xychart-beta 막대그래프로 표 위에 추가하세요 - 원래 값(단위가 "
+                        + "제각각이라 같이 비교 불가) 대신 그룹 평균 대비 차이(%)로 정규화해서, x축엔 지표명, "
+                        + "막대 하나에 지표 하나씩(부호 포함) 전부 넣으세요. 하나만 골라내지 마세요. 형식 예시(항목 "
+                        + "수·이름·수치만 실제 값으로 바꿔서 그대로 따르세요):\n```mermaid\nxychart-beta\n"
+                        + "    title \"그룹 평균 대비 차이\"\n    x-axis [\"CO2\", \"습도\", \"환풍기 가동시간\"]\n"
+                        + "    y-axis \"차이 (%)\"\n    bar [32.0, -18.0, 45.0]\n```" : "")
                 .append(hasAiFlows ? " 관리 중인 자동화 섹션은 각 자동화가 무엇을 언제 하는지와 현재 상태(활성/비활성)를 "
                         + "간단히 나열하고, 제공된 설명 문장을 그대로 옮기지 말고 한 줄로 요약하세요." : "")
                 .append(hasAiFlows && hasWeather ? " 설명 문구에서 유추되는 생성 시점(월/계절)과 현재·(있다면) 4~10일 후 "

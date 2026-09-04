@@ -27,6 +27,9 @@ public record ActuatorCommandRequest(
 
     public static ActuatorCommandRequest of(String actuatorType, String command, String commandValue,
                                             CallerService callerService) {
+        // LLM(제안/챗봇)이 만든 명령이 실제로 허용된 조합인지 Core로 나가기 직전 마지막으로 검증한다 -
+        // 프롬프트 지시만으로는 SET_TEMPERATURE=999 같은 값도 그대로 통과해버렸다.
+        ActuatorCommandVocabulary.validate(actuatorType, command, commandValue);
         return new ActuatorCommandRequest(actuatorType,
                 COMMAND_TO_CORE_STATE_KEY.getOrDefault(command, command), commandValue, callerService);
     }

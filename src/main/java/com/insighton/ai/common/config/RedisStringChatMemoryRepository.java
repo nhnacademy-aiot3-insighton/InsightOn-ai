@@ -8,6 +8,7 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
@@ -47,8 +48,7 @@ public class RedisStringChatMemoryRepository implements ChatMemoryRepository {
     }
 
     /**
-     * 채팅 이력 조회 API용. findByConversationId는 TOOL 타입도 UserMessage로 뭉개서 반환하기 때문에(LLM
-     * 컨텍스트 재생용이라 그래도 됨), 원래 타입이 필요한 화면 표시용으로는 이 메서드로 원본 타입을 그대로 받는다.
+     * 채팅 이력 조회 API용. 원본 타입(및 도구 호출/응답 원본 데이터)을 그대로 받는다.
      */
     public List<StoredMessage> findRawByConversationId(String conversationId) {
         String json = redisTemplate.opsForValue()
@@ -64,7 +64,7 @@ public class RedisStringChatMemoryRepository implements ChatMemoryRepository {
     @Override
     public void saveAll(String conversationId, List<Message> messages) {
         StoredMessage[] stored = messages.stream()
-                .map(m -> new StoredMessage(m.getMessageType(), m.getText()))
+                .map(RedisStringChatMemoryRepository::toStoredMessage)
                 .toArray(StoredMessage[]::new);
 
         String json = jsonMapper.writeValueAsString(stored);
@@ -77,14 +77,43 @@ public class RedisStringChatMemoryRepository implements ChatMemoryRepository {
         redisTemplate.delete(KEY_PREFIX + conversationId);
     }
 
+    /**
+     * type+text만 저장하면, 도구 호출이 섞인 대화(챗봇 Tool 대부분이 여기 해당)를 다시 불러올 때
+     * AssistantMessage의 toolCalls와 ToolResponseMessage의 실제 응답 내용이 통째로 사라진다. 그 상태로
+     * 다음 LLM 호출에 이 이력을 다시 태우면 "도구 응답인데 대응하는 도구 호출 기록이 없는" 구조가 되어
+     * Gemini가 대화를 거부하거나 이상하게 반응할 수 있다 - 도구를 한 번이라도 쓴 대화가 그 다음부터
+     * 계속 깨지던 원인. toolCalls/toolResponses를 같이 저장해 그대로 복원한다.
+     */
+    private static StoredMessage toStoredMessage(Message message) {
+        if (message instanceof AssistantMessage assistantMessage) {
+            return new StoredMessage(MessageType.ASSISTANT, assistantMessage.getText(),
+                    assistantMessage.hasToolCalls() ? assistantMessage.getToolCalls() : null, null);
+        }
+        if (message instanceof ToolResponseMessage toolResponseMessage) {
+            return new StoredMessage(MessageType.TOOL, message.getText(), null, toolResponseMessage.getResponses());
+        }
+        return new StoredMessage(message.getMessageType(), message.getText(), null, null);
+    }
+
     private static Message toMessage(StoredMessage stored) {
         return switch (stored.type()) {
-            case USER, TOOL -> new UserMessage(stored.text());
-            case ASSISTANT -> new AssistantMessage(stored.text());
+            case USER -> new UserMessage(stored.text());
+            case ASSISTANT -> AssistantMessage.builder()
+                    .content(stored.text())
+                    .toolCalls(stored.toolCalls() != null ? stored.toolCalls() : List.of())
+                    .build();
+            case TOOL -> ToolResponseMessage.builder()
+                    .responses(stored.toolResponses() != null ? stored.toolResponses() : List.of())
+                    .build();
             case SYSTEM -> new SystemMessage(stored.text());
         };
     }
 
-    public record StoredMessage(MessageType type, String text) {
+    public record StoredMessage(
+            MessageType type,
+            String text,
+            List<AssistantMessage.ToolCall> toolCalls,
+            List<ToolResponseMessage.ToolResponse> toolResponses
+    ) {
     }
 }

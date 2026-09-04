@@ -42,8 +42,8 @@ class ChatbotServiceTest {
     @Test
     void getHistory_위치와_무관하게_userId_기준_conversationId로_조회한다() {
         given(chatMemoryRepository.findRawByConversationId("chat:5:100")).willReturn(List.of(
-                new StoredMessage(MessageType.USER, "안녕"),
-                new StoredMessage(MessageType.ASSISTANT, "안녕하세요")));
+                new StoredMessage(MessageType.USER, "안녕", null, null),
+                new StoredMessage(MessageType.ASSISTANT, "안녕하세요", null, null)));
 
         List<ChatHistoryMessage> history = chatbotService.getHistory(5L, 100L);
 
@@ -55,10 +55,10 @@ class ChatbotServiceTest {
     @Test
     void getHistory_TOOL과_SYSTEM_메시지는_제외한다() {
         given(chatMemoryRepository.findRawByConversationId("chat:5:100")).willReturn(List.of(
-                new StoredMessage(MessageType.SYSTEM, "시스템 프롬프트"),
-                new StoredMessage(MessageType.USER, "에어컨 꺼줘"),
-                new StoredMessage(MessageType.TOOL, "{\"actuatorType\":\"AIRCON\"}"),
-                new StoredMessage(MessageType.ASSISTANT, "껐습니다")));
+                new StoredMessage(MessageType.SYSTEM, "시스템 프롬프트", null, null),
+                new StoredMessage(MessageType.USER, "에어컨 꺼줘", null, null),
+                new StoredMessage(MessageType.TOOL, "{\"actuatorType\":\"AIRCON\"}", null, null),
+                new StoredMessage(MessageType.ASSISTANT, "껐습니다", null, null)));
 
         List<ChatHistoryMessage> history = chatbotService.getHistory(5L, 100L);
 

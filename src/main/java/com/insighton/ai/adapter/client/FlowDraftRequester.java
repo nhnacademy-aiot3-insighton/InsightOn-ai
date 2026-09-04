@@ -5,6 +5,7 @@ import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.BUSI
 
 import com.insighton.ai.adapter.client.dto.ActuatorAction;
 import com.insighton.ai.adapter.client.dto.ActuatorCommandRequest;
+import com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary;
 import com.insighton.ai.adapter.client.dto.FlowDraftCreateRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftLinkRequest;
 import com.insighton.ai.adapter.client.dto.FlowDraftNodeRequest;
@@ -46,6 +47,10 @@ public class FlowDraftRequester {
     public Optional<String> requestDraft(Long groupId, Long locationId, String sourceDescription,
                              HourlyPeakPattern pattern, ActuatorAction action) {
         try {
+            // 이 경로는 ActuatorCommandRequest.of()를 안 거치고 Rule Engine flow 노드를 직접 조립하므로,
+            // 다른 4개 경로(제안/예약/챗봇 즉시제어/관리자 수락)와 달리 여기서 따로 검증해야 한다.
+            ActuatorCommandVocabulary.validate(action.actuatorType().name(), action.command(), action.commandValue());
+
             String cron = buildPreventiveCron(pattern.peakHour());
             String command = ActuatorCommandRequest.COMMAND_TO_CORE_STATE_KEY
                     .getOrDefault(action.command(), action.command());
