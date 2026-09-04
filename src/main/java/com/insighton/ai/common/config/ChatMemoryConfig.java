@@ -16,6 +16,7 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.google.genai.GoogleGenAiChatModel;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -47,6 +48,9 @@ public class ChatMemoryConfig {
                                     ScheduledComfortSetupChatTool scheduledComfortSetupChatTool,
                                     FlowRecommendationChatTool flowRecommendationChatTool) {
         return ChatClient.builder(chatModel)
+                // Gemini의 사고 과정(thought) 텍스트가 스트리밍 답변에 그대로 섞여 나오는 걸 막는다 -
+                // Spring AI가 isThought 메타데이터만 붙이고 본문에서 걸러내진 않아, API 요청 단계에서 꺼야 한다.
+                .defaultOptions(GoogleGenAiChatOptions.builder().includeThoughts(false))
                 .defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build())
                 .defaultTools(reportChatTool, telemetryStatChatTool,
                         engineAlertChatTool, suggestionChatTool,
