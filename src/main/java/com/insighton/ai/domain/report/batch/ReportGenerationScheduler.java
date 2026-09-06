@@ -37,6 +37,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -98,9 +102,15 @@ public class ReportGenerationScheduler {
                 now.minusMonths(2), now.minusMonths(1).minusHours(1));
     }
 
+    // location마다 LLM 호출을 1~2번, Feign 호출을 여러 번 하므로 가상 스레드로 전부 동시에 띄우면
+    // Gemini API 분당 요청 제한이나 Feign 커넥션 풀에 순간적으로 과부하가 걸릴 수 있다 - 동시 처리 개수를
+    // 여유 있게만 제한해서, 스레드 자체는 얼마든지 떠도 실제 외부 호출 동시성은 이 안에서만 일어나게 한다.
+    private static final int MAX_CONCURRENT_REPORTS = 10;
+
     /**
-     * hourly_telemetry_stats에 이번 기간 데이터가 존재하는 location 전체를 순회하며 리포트를 생성한다. location 하나가 실패(Core 응답 실패, LLM 호출 실패 등)해도
-     * 나머지 location 처리는 계속 진행
+     * hourly_telemetry_stats에 이번 기간 데이터가 존재하는 location 전체를 가상 스레드로 동시 처리하며 리포트를 생성한다. location끼리 서로 데이터를 공유하지
+     * 않는 독립 작업이고 대부분의 시간을 DB/Feign/LLM 응답 대기로 보내는 I/O 바운드 작업이라, 순차 처리 시 location 수만큼 누적되던 지연시간이 가장 느린 location
+     * 1개 수준으로 줄어든다. location 하나가 실패(Core 응답 실패, LLM 호출 실패 등)해도 나머지 location 처리는 계속 진행(기존과 동일하게 유지)
      *
      * @param reportType      WEEKLY 또는 MONTHLY
      * @param periodStart     이번 기간 집계 시작(포함)
@@ -114,12 +124,26 @@ public class ReportGenerationScheduler {
 
         List<Long> locationIds = hourlyTelemetryStatService.findDistinctLocationIds(periodStart, periodEnd);
 
-        for (Long locationId : locationIds) {
-            try {
-                generateOneReport(reportType, locationId, periodStart, periodEnd, prevPeriodStart, prevPeriodEnd);
-            } catch (Exception e) {
-                log.error("리포트 생성 실패 - reportType:{}, locationId:{}", reportType, locationId, e);
-            }
+        Semaphore concurrencyLimiter = new Semaphore(MAX_CONCURRENT_REPORTS);
+        List<Callable<Void>> tasks = locationIds.stream()
+                .<Callable<Void>>map(locationId -> () -> {
+                    concurrencyLimiter.acquire();
+                    try {
+                        generateOneReport(reportType, locationId, periodStart, periodEnd, prevPeriodStart, prevPeriodEnd);
+                    } catch (Exception e) {
+                        log.error("리포트 생성 실패 - reportType:{}, locationId:{}", reportType, locationId, e);
+                    } finally {
+                        concurrencyLimiter.release();
+                    }
+                    return null;
+                })
+                .toList();
+
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            executor.invokeAll(tasks); // 전체 완료(또는 개별 실패)까지 대기 - 기존 순차 루프와 동일한 완료 시점 보장
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("리포트 생성 배치 중단됨 - reportType:{}", reportType, e);
         }
         log.info("리포트 생성 배치 완료 - reportType:{}, 대상 location 수:{}", reportType, locationIds.size());
     }
