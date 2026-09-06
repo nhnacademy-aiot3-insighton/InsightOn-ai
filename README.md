@@ -91,7 +91,7 @@ flowchart TD
     A[InfluxDB<br/>sensor_data / actuator_status] -->|매시 정각| B[HourlyTelemetryAggregationScheduler<br/>직전 3시간 창 재시도 포함]
     B --> C[(hourly_telemetry_stats<br/>PostgreSQL)]
     C -->|평일 9~17시 매 정각 5분| D[SuggestionGenerationScheduler]
-    C -->|매일 00:00 KST| E[ReportGenerationScheduler]
+    C -->|매주 월요일 및 매월 1일 00:00 KST| E[ReportGenerationScheduler]
     F[Rule Engine<br/>AI_SUGGESTION_ACTION 이벤트] -->|즉시 트리거| D
     D -->|LLM 판단| D1{actionNeeded?}
     D1 -- AI_DIRECT 모드 --> D2[즉시 실행<br/>ActuatorCommandExecutor]
@@ -213,9 +213,10 @@ sequenceDiagram
 로직의 회귀는 `ReportGenerationSchedulerTest`가 "패턴 3개 → LLM 호출 1회, Flow 요청 3회"를 직접
 검증합니다.
 
-- 주간: `@Scheduled(cron = "0 0 0 * * *", zone="Asia/Seoul")` — 원래는 `"0 0 0 * * MON"`(매주
-  월요일)이어야 하나, **현재 코드에 "TEST-ONLY: 매일 00:00 실행" 주석과 함께 임시로 매일 실행되도록
-  바뀌어 있다.** 검증이 끝나면 반드시 원복해야 함(월간도 동일하게 `"0 0 0 1 * *"`로 원복 필요).
+- 주간: `@Scheduled(cron = "0 0 0 * * MON", zone="Asia/Seoul")` — 매주 월요일 00:00 실행. 직전
+  월~일(7일)을 이번 기간, 그 전 7일을 비교 기준(지난 기간)으로 삼는다.
+- 월간: `@Scheduled(cron = "0 0 0 1 * *", zone="Asia/Seoul")` — 매월 1일 00:00 실행. 직전 달
+  1일~말일을 이번 기간, 그 전달을 비교 기준(지난 기간)으로 삼는다.
 - **가상 스레드 병렬화**: 이번 기간에 데이터가 있는 location 전체를 `Executors.newVirtualThreadPerTaskExecutor()`로
   동시에 처리한다. location끼리 데이터를 공유하지 않는 완전 독립 작업이고 대부분의 시간을 DB/Feign/LLM
   응답 대기로 보내는 I/O 바운드 작업이라, 순차 처리 시 location 수만큼 누적되던 지연시간이 가장 느린
