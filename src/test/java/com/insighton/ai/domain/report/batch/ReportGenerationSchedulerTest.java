@@ -390,6 +390,33 @@ class ReportGenerationSchedulerTest {
     }
 
     @Test
+    void generateOneReport_피크_패턴이_3개여도_flow_판단_LLM_호출은_1회만_발생한다() {
+        // 토큰 최적화 검증: 패턴마다 개별 LLM 호출을 했다면 이 테스트는 entity() 3회 호출로 실패했을 것.
+        PeriodTelemetrySummary current = new PeriodTelemetrySummary(42L, PERIOD_START, PERIOD_END,
+                Map.of("temperature", 27.0, "co2", 1100.0, "humidity", 70.0), Map.of(), Map.of(),
+                Map.of("AIRCON", 30.0, "VENTILATION_FAN", 30.0, "AIR_PURIFIER", 30.0), Map.of());
+        stubCommonData(current, summary(Map.of()));
+        HourlyPeakPattern temperaturePattern = new HourlyPeakPattern("temperature", 10, 27.0, 22.0, 22.7);
+        HourlyPeakPattern co2Pattern = new HourlyPeakPattern("co2", 14, 1100.0, 800.0, 37.5);
+        HourlyPeakPattern humidityPattern = new HourlyPeakPattern("humidity", 15, 70.0, 50.0, 40.0);
+        given(hourlyTelemetryStatService.extractPeakPatterns(current))
+                .willReturn(List.of(temperaturePattern, co2Pattern, humidityPattern));
+        given(flowActionPromptBuilder.build(any(), any())).willReturn("flow 판단 프롬프트");
+        given(callResponseSpec.entity(FlowActionDecisions.class)).willReturn(new FlowActionDecisions(List.of(
+                new FlowActionDecision("temperature", true, ActuatorType.AIRCON, "POWER_STATUS", "ON"),
+                new FlowActionDecision("co2", true, ActuatorType.VENTILATION_FAN, "POWER_STATUS", "ON"),
+                new FlowActionDecision("humidity", true, ActuatorType.AIR_PURIFIER, "POWER_STATUS", "ON"))));
+
+        reportGenerationScheduler.generateOneReport(ReportType.MONTHLY, 42L, PERIOD_START, PERIOD_END, PREV_START,
+                PREV_END);
+
+        // 패턴 3개를 하나의 프롬프트에 담아 LLM을 정확히 1번만 부름(누적 재전송 구조를 피함)
+        verify(callResponseSpec, times(1)).entity(FlowActionDecisions.class);
+        // 그 1번의 응답에서 나온 결정 3개는 각각 별도로 flow 생성 요청됨(호출 수를 줄인 건 LLM 판단이지 flow 생성이 아님)
+        verify(flowDraftRequester, times(3)).requestDraft(any(), any(), any(), any(), any());
+    }
+
+    @Test
     void generateOneReport_업무시간_밖_피크는_리포트에는_남지만_flow_자동화_대상에서는_제외된다() {
         PeriodTelemetrySummary current = new PeriodTelemetrySummary(42L, PERIOD_START, PERIOD_END,
                 Map.of("co2", 800.0), Map.of(), Map.of(), Map.of("VENTILATION_FAN", 30.0), Map.of());
