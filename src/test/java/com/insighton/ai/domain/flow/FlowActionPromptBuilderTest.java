@@ -27,9 +27,10 @@ class FlowActionPromptBuilderTest {
     void build_실제_존재하는_액추에이터_타입만_허용_명령_목록에_포함한다() {
         String prompt = flowActionPromptBuilder.build(List.of(), Set.of("AIRCON"));
 
-        assertThat(prompt).contains("AIRCON");
-        assertThat(prompt).doesNotContain("AIR_PURIFIER");
-        assertThat(prompt).doesNotContain("VENTILATION_FAN");
+        assertThat(prompt)
+                .contains("AIRCON")
+                .doesNotContain("AIR_PURIFIER")
+                .doesNotContain("VENTILATION_FAN");
     }
 
     @Test

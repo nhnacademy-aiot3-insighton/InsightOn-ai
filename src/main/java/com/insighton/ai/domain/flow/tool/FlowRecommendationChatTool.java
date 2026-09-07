@@ -89,28 +89,45 @@ public class FlowRecommendationChatTool {
 
         String prompt = flowActionPromptBuilder.build(businessHourPatterns, presentActuatorTypes);
         FlowActionDecisions result = chatClient.prompt().user(prompt).call().entity(FlowActionDecisions.class);
+        if (result == null) {
+            return "자동화 판단에 실패했습니다. 잠시 후 다시 시도해주세요.";
+        }
 
         Map<String, HourlyPeakPattern> patternsByMetric = businessHourPatterns.stream()
                 .collect(Collectors.toMap(HourlyPeakPattern::metric, Function.identity(), (a, b) -> a));
 
         List<String> summaries = new ArrayList<>();
         for (FlowActionDecision decision : result.decisions()) {
-            HourlyPeakPattern pattern = patternsByMetric.get(decision.metric());
-            boolean actuatorPresent = decision.actuatorType() != null
-                    && presentActuatorTypes.contains(decision.actuatorType().name());
-            if (!decision.automationRecommended() || pattern == null || !actuatorPresent) {
-                continue;
-            }
-            ActuatorAction action = new ActuatorAction(decision.actuatorType(), decision.command(),
-                    decision.commandValue());
-            Optional<String> status = flowDraftRequester.requestDraft(groupId, locationId, "챗봇 요청", pattern, action);
-            summaries.add(summarize(pattern, action, status));
+            tryCreateAutomation(groupId, locationId, decision, patternsByMetric, presentActuatorTypes)
+                    .ifPresent(summaries::add);
         }
 
         if (summaries.isEmpty()) {
             return "분석 결과 지금 이 위치에 추가로 필요한 자동화가 없습니다.";
         }
         return summaries.size() + "개의 자동화를 만들었습니다.\n" + String.join("\n", summaries);
+    }
+
+    /**
+     * 판단 결과 하나를 실제 Flow 초안 요청으로 반영한다. 자동화가 부적절하다고 판단됐거나, 판단이 가리키는 지표/액추에이터가 이 위치의 실제 데이터와 안 맞으면(예: LLM이 목록에 없는
+     * 액추에이터를 지어낸 경우) 건너뛴다.
+     *
+     * @return 반영됐으면 요약 문구, 건너뛰었으면 빈 값
+     */
+    private Optional<String> tryCreateAutomation(Long groupId, Long locationId, FlowActionDecision decision,
+                                                 Map<String, HourlyPeakPattern> patternsByMetric,
+                                                 Set<String> presentActuatorTypes) {
+        HourlyPeakPattern pattern = patternsByMetric.get(decision.metric());
+        boolean actuatorPresent = decision.actuatorType() != null
+                && presentActuatorTypes.contains(decision.actuatorType().name());
+        if (!decision.automationRecommended() || pattern == null || !actuatorPresent) {
+            return Optional.empty();
+        }
+
+        ActuatorAction action = new ActuatorAction(decision.actuatorType(), decision.command(),
+                decision.commandValue());
+        Optional<String> status = flowDraftRequester.requestDraft(groupId, locationId, "챗봇 요청", pattern, action);
+        return Optional.of(summarize(pattern, action, status));
     }
 
     // status: Rule Engine이 실제로 저장한 상태(ACTIVE/INACTIVE) - 위치가 AI_DIRECT 모드면 즉시 ACTIVE로
