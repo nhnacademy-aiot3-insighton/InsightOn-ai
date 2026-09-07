@@ -1,10 +1,10 @@
 package com.insighton.ai.domain.suggestion.batch;
 
-import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
-import com.insighton.ai.adapter.client.CoreClient;
 import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.ACTUATOR_COMMANDS;
 import static com.insighton.ai.adapter.client.dto.ActuatorCommandVocabulary.COMFORT_RANGE;
 
+import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
+import com.insighton.ai.adapter.client.CoreClient;
 import com.insighton.ai.adapter.client.dto.ActionPayload;
 import com.insighton.ai.adapter.client.dto.AutoControlMode;
 import com.insighton.ai.adapter.client.dto.CallerService;
@@ -22,6 +22,10 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
@@ -48,6 +52,8 @@ public class SuggestionGenerationScheduler {
     private final ChatClient chatClient;
     private final JsonMapper jsonMapper;
 
+    private static final int MAX_CONCURRENT_SUGGESTION = 5;
+
     /**
      * 업무시간(평일 9~17시) 매 정각 5분 뒤 실행. 정각 통계 집계 배치(0분에 실행)와 Core 날씨 캐시 갱신(정각으로 가정)이 끝난 뒤 도는 걸 보장하기 위해 지연.
      */
@@ -60,12 +66,27 @@ public class SuggestionGenerationScheduler {
 
         List<Long> locationIds = hourlyTelemetryStatService.findDistinctLocationIds(currentHour, currentHour);
 
-        for (Long locationId : locationIds) {
-            try {
-                generateOneSuggestion(locationId, currentHour);
-            } catch (Exception e) {
-                log.error("제안 생성 실패 - locationId:{}", locationId, e);
-            }
+        Semaphore concurrencyLimiter = new Semaphore(MAX_CONCURRENT_SUGGESTION);
+        List<Callable<Void>> tasks = locationIds.stream()
+                .<Callable<Void>>map(locationId -> () -> {
+                    concurrencyLimiter.acquire();
+
+                    try {
+                        generateOneSuggestion(locationId, currentHour);
+                    } catch (Exception e) {
+                        log.error("제안 생성 실패 - locationId: {}", locationId, e);
+                    } finally {
+                        concurrencyLimiter.release();
+                    }
+                    return null;
+                })
+                .toList();
+
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            executor.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("제안 생성 배치 중단됨", e);
         }
         log.info("제안 생성 배치 완료 - logHour:{}, 대상 location 수:{}", currentHour, locationIds.size());
     }
@@ -169,9 +190,8 @@ public class SuggestionGenerationScheduler {
     }
 
     /**
-     * 거절 패턴 조회/과거 actionPayload 파싱이 실패해도(저장소 오류, 옛 포맷 손상 등) 제안 생성 자체가 죽지 않도록 감싸서, 실패 시 빈 목록을
-     * 반환. 이 신호는 원래도 참고용일 뿐이라 없어도 제안 생성엔 지장 없음 - 특히 이벤트 트리거 경로는 큐에 DLQ가 없어서, 여기서 예외가 새어나가면
-     * 위치 하나의 오래된 이력 데이터 하나 때문에 그 위치의 긴급 제안이 계속 조용히 실패할 수 있음.
+     * 거절 패턴 조회/과거 actionPayload 파싱이 실패해도(저장소 오류, 옛 포맷 손상 등) 제안 생성 자체가 죽지 않도록 감싸서, 실패 시 빈 목록을 반환. 이 신호는 원래도 참고용일 뿐이라 없어도
+     * 제안 생성엔 지장 없음 - 특히 이벤트 트리거 경로는 큐에 DLQ가 없어서, 여기서 예외가 새어나가면 위치 하나의 오래된 이력 데이터 하나 때문에 그 위치의 긴급 제안이 계속 조용히 실패할 수 있음.
      */
     private List<RejectionPattern> tryFindRejectionPatterns(Long locationId) {
         try {
@@ -226,8 +246,8 @@ public class SuggestionGenerationScheduler {
     }
 
     /**
-     * 정기/이벤트 두 프롬프트가 공통으로 쓰는 컨텍스트(쾌적 기준값, 실내 환경, 액추에이터 가동, 날씨, 조작 가능 명령, 거절 패턴, 출력 지침)를 조립한다. 쾌적 기준값/조작 가능 명령 목록은
-     * 실제 존재하는 것만 명시해 회사마다 다른 센서/액추에이터 구성에 그대로 대응.
+     * 정기/이벤트 두 프롬프트가 공통으로 쓰는 컨텍스트(쾌적 기준값, 실내 환경, 액추에이터 가동, 날씨, 조작 가능 명령, 거절 패턴, 출력 지침)를 조립한다. 쾌적 기준값/조작 가능 명령 목록은 실제
+     * 존재하는 것만 명시해 회사마다 다른 센서/액추에이터 구성에 그대로 대응.
      */
     private String buildCommonContext(PeriodTelemetrySummary current, WeatherResponse weather, Long locationId) {
         StringBuilder sb = new StringBuilder();
