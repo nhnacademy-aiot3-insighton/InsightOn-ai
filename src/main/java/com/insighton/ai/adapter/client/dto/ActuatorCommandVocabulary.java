@@ -12,19 +12,23 @@ import java.util.Set;
  */
 public final class ActuatorCommandVocabulary {
 
+    private static final String POWER_STATUS = "POWER_STATUS";
+    private static final String OPERATION_MODE = "OPERATION_MODE";
+    private static final String ON_OFF = "ON, OFF";
+
     public static final Map<String, Map<String, String>> ACTUATOR_COMMANDS = Map.of(
             "AIRCON", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "COOL, DRY, FAN, AUTO",
+                    POWER_STATUS, ON_OFF,
+                    OPERATION_MODE, "COOL, DRY, FAN, AUTO",
                     "SET_TEMPERATURE", "18~30 사이 숫자"
             ),
             "AIR_PURIFIER", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "AUTO, SLEEP, TURBO"
+                    POWER_STATUS, ON_OFF,
+                    OPERATION_MODE, "AUTO, SLEEP, TURBO"
             ),
             "VENTILATION_FAN", Map.of(
-                    "POWER_STATUS", "ON, OFF",
-                    "OPERATION_MODE", "LOW, MID, HIGH"
+                    POWER_STATUS, ON_OFF,
+                    OPERATION_MODE, "LOW, MID, HIGH"
             )
     );
 
@@ -35,17 +39,17 @@ public final class ActuatorCommandVocabulary {
      */
     private static final Map<String, Map<String, CommandValueRule>> ACTUATOR_COMMAND_RULES = Map.of(
             "AIRCON", Map.of(
-                    "POWER_STATUS", new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
-                    "OPERATION_MODE", new CommandValueRule.AllowedValues(Set.of("COOL", "DRY", "FAN", "AUTO")),
+                    POWER_STATUS, new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
+                    OPERATION_MODE, new CommandValueRule.AllowedValues(Set.of("COOL", "DRY", "FAN", "AUTO")),
                     "SET_TEMPERATURE", new CommandValueRule.NumericRange(18, 30)
             ),
             "AIR_PURIFIER", Map.of(
-                    "POWER_STATUS", new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
-                    "OPERATION_MODE", new CommandValueRule.AllowedValues(Set.of("AUTO", "SLEEP", "TURBO"))
+                    POWER_STATUS, new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
+                    OPERATION_MODE, new CommandValueRule.AllowedValues(Set.of("AUTO", "SLEEP", "TURBO"))
             ),
             "VENTILATION_FAN", Map.of(
-                    "POWER_STATUS", new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
-                    "OPERATION_MODE", new CommandValueRule.AllowedValues(Set.of("LOW", "MID", "HIGH"))
+                    POWER_STATUS, new CommandValueRule.AllowedValues(Set.of("ON", "OFF")),
+                    OPERATION_MODE, new CommandValueRule.AllowedValues(Set.of("LOW", "MID", "HIGH"))
             )
     );
 

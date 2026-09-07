@@ -31,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class DashboardNotificationServiceImpl implements DashboardNotificationService {
 
+    private static final String GROUP_ID_REQUIRED_MESSAGE = "groupId는 필수값입니다.";
+
     private final DashboardNotificationRepository notificationRepository;
     private final Validator validator;
     private final GroupAuthorizationService groupAuthorizationService;
@@ -46,7 +48,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
     @Override
     public List<DashboardNotificationResponse> findUnreadDashboardNotifications(Long groupId) {
         if (groupId == null) {
-            throw new InvalidRequestException("groupId는 필수값입니다.");
+            throw new InvalidRequestException(GROUP_ID_REQUIRED_MESSAGE);
         }
 
         List<DashboardNotification> notifications = notificationRepository.findByGroupIdAndIsReadFalseOrderByCreatedAtDesc(
@@ -67,7 +69,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
                                                                          Pageable pageable) {
 
         if (groupId == null) {
-            throw new InvalidRequestException("groupId는 필수값입니다.");
+            throw new InvalidRequestException(GROUP_ID_REQUIRED_MESSAGE);
         }
 
         Page<DashboardNotification> notifications = notificationRepository.search(groupId, isRead, notificationType,
@@ -144,7 +146,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
     @Override
     public void deleteByGroup(Long groupId) {
         if (groupId == null) {
-            throw new InvalidRequestException("groupId는 필수값입니다.");
+            throw new InvalidRequestException(GROUP_ID_REQUIRED_MESSAGE);
         }
         notificationRepository.deleteByGroupId(groupId);
         log.info("대시보드 알람 일괄 삭제 - groupId:{}", groupId);
@@ -164,7 +166,7 @@ public class DashboardNotificationServiceImpl implements DashboardNotificationSe
     @Override
     public int markAllAsRead(Long groupId, Long userId) {
         if (groupId == null) {
-            throw new InvalidRequestException("groupId는 필수값입니다.");
+            throw new InvalidRequestException(GROUP_ID_REQUIRED_MESSAGE);
         }
 
         groupAuthorizationService.requireRole(groupId, userId, GroupRole.MANAGER);

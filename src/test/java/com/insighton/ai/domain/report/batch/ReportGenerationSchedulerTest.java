@@ -124,7 +124,7 @@ class ReportGenerationSchedulerTest {
                 .willReturn(new EngineAlertSummary(0, 0, List.of()));
         given(suggestionLogService.summarizePeriod(42L, PERIOD_START, PERIOD_END))
                 .willReturn(new SuggestionSummary(0, 0, 0, 0));
-        given(coreClient.getActuatorRunLogs(eq(List.of(42L)), eq(PERIOD_START), eq(PERIOD_END)))
+        given(coreClient.getActuatorRunLogs(List.of(42L), PERIOD_START, PERIOD_END))
                 .willReturn(actuatorLogs);
         given(reportService.createReport(any())).willReturn(savedReport(100L));
     }
@@ -247,8 +247,8 @@ class ReportGenerationSchedulerTest {
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(requestSpec).user(promptCaptor.capture());
         String prompt = promptCaptor.getValue();
-        assertThat(prompt).contains("## 그룹 내 다른 위치 대비");
-        assertThat(prompt).contains("temperature: 이 위치 30.0 vs 그룹 평균 20.0 (+50.0%)");
+        assertThat(prompt).contains("## 그룹 내 다른 위치 대비",
+                "temperature: 이 위치 30.0 vs 그룹 평균 20.0 (+50.0%)");
     }
 
     @Test
@@ -324,8 +324,7 @@ class ReportGenerationSchedulerTest {
         ArgumentCaptor<String> promptCaptor = ArgumentCaptor.forClass(String.class);
         verify(requestSpec).user(promptCaptor.capture());
         String prompt = promptCaptor.getValue();
-        assertThat(prompt).contains("개선 제안마다 기대 효과를 함께 제시하세요");
-        assertThat(prompt).contains("검증 불가능한 정확한 수치");
+        assertThat(prompt).contains("개선 제안마다 기대 효과를 함께 제시하세요", "검증 불가능한 정확한 수치");
     }
 
     @Test
@@ -562,7 +561,7 @@ class ReportGenerationSchedulerTest {
                 .willReturn(new EngineAlertSummary(0, 0, List.of()));
         given(suggestionLogService.summarizePeriod(42L, PERIOD_START, PERIOD_END))
                 .willReturn(new SuggestionSummary(0, 0, 0, 0));
-        given(coreClient.getActuatorRunLogs(eq(List.of(42L)), eq(PERIOD_START), eq(PERIOD_END))).willReturn(List.of());
+        given(coreClient.getActuatorRunLogs(List.of(42L), PERIOD_START, PERIOD_END)).willReturn(List.of());
         given(reportService.createReport(any())).willReturn(savedReport(100L));
 
         reportGenerationScheduler.generateOneReport(ReportType.WEEKLY, 42L, PERIOD_START, PERIOD_END, PREV_START,

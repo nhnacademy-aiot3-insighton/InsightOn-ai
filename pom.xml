@@ -32,6 +32,9 @@
         <spring-cloud.version>2025.1.2</spring-cloud.version>
         <springdoc.version>3.1.0</springdoc.version>
         <shedlock.version>5.16.0</shedlock.version>
+        <!-- QueryDSL이 어노테이션 프로세서로 생성하는 Q클래스는 손으로 짠 코드가 아니라 커버리지/이슈 스캔 대상에서 제외 -->
+        <sonar.exclusions>**/entity/Q*.java</sonar.exclusions>
+        <sonar.coverage.exclusions>**/entity/Q*.java</sonar.coverage.exclusions>
     </properties>
     <dependencies>
         <dependency>
@@ -270,6 +273,11 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>**/entity/Q*.class</exclude>
+                            </excludes>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

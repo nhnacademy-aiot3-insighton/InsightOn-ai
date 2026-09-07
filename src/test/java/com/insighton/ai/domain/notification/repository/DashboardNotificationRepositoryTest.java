@@ -141,7 +141,7 @@ class DashboardNotificationRepositoryTest {
 
         assertThat(updated).isEqualTo(2);
         Page<DashboardNotification> result = notificationRepository.search(5L, null, null, PageRequest.of(0, 20));
-        assertThat(result.getContent()).allMatch(DashboardNotification::isRead);
+        assertThat(result.getContent()).isNotEmpty().allMatch(DashboardNotification::isRead);
     }
 
     @Test
@@ -162,6 +162,6 @@ class DashboardNotificationRepositoryTest {
 
         int updated = notificationRepository.markAllAsRead(5L);
 
-        assertThat(updated).isEqualTo(0);
+        assertThat(updated).isZero();
     }
 }
