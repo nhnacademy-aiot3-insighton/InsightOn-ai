@@ -12,7 +12,6 @@ import com.influxdb.client.InfluxDBClient;
 import com.insighton.ai.adapter.client.ActuatorCommandExecutor;
 import com.insighton.ai.domain.scheduledtask.dto.ScheduledActuatorTask;
 import com.insighton.ai.domain.telemetrystats.service.HourlyTelemetryStatService;
-import java.time.OffsetDateTime;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

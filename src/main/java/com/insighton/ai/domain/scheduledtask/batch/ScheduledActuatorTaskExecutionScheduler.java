@@ -184,8 +184,8 @@ public class ScheduledActuatorTaskExecutionScheduler {
 
         Map<String, Double> result = new HashMap<>();
         for (FluxTable table : influxDBClient.getQueryApi().query(flux)) {
-            for (FluxRecord record : table.getRecords()) {
-                result.put(record.getField(), ((Number) record.getValue()).doubleValue());
+            for (FluxRecord fluxRecord : table.getRecords()) {
+                result.put(fluxRecord.getField(), ((Number) fluxRecord.getValue()).doubleValue());
             }
         }
         return result;

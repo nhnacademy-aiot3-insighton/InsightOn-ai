@@ -57,16 +57,17 @@ public class SuggestionGenerationScheduler {
     /**
      * 업무시간(평일 9~17시) 매 정각 5분 뒤 실행. 정각 통계 집계 배치(0분에 실행)와 Core 날씨 캐시 갱신(정각으로 가정)이 끝난 뒤 도는 걸 보장하기 위해 지연.
      */
-    // TEST-ONLY: 리포트/Flow 테스트 중 정기 스케줄만 비활성화 — 검증 끝나면 주석 해제할 것
-    // @Scheduled(cron = "0 5 9-17 * * MON-FRI", zone = "Asia/Seoul")
-    // @SchedulerLock(name = "suggestionGeneration", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
+    @Scheduled(cron = "0 5 9-17 * * MON-FRI", zone = "Asia/Seoul")
+    @SchedulerLock(name = "suggestionGeneration", lockAtMostFor = "PT10M", lockAtLeastFor = "PT1M")
     public void generateSuggestions() {
         log.info("AI제안 스케줄러 작동");
         OffsetDateTime currentHour = OffsetDateTime.now(ZoneId.systemDefault()).truncatedTo(ChronoUnit.HOURS)
                 .minusHours(1);
 
+        //1시간 별 텔레메트리 통계 잡힌 Location목록만 가지고 옴
         List<Long> locationIds = hourlyTelemetryStatService.findDistinctLocationIds(currentHour, currentHour);
 
+        // 동시에 최대 5개 Location만 외부 호출(Feign/LLM)을 하게 제한 하면서, 가상 스레드로 location마다 동시에 처리
         Semaphore concurrencyLimiter = new Semaphore(MAX_CONCURRENT_SUGGESTION);
         List<Callable<Void>> tasks = locationIds.stream()
                 .<Callable<Void>>map(locationId -> () -> {

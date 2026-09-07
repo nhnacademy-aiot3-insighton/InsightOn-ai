@@ -165,8 +165,8 @@ class SuggestionGenerationSchedulerTest {
         verify(suggestionLogService).create(captor.capture());
         assertThat(captor.getValue().isAccepted()).isTrue();
 
-        verify(actuatorCommandExecutor).execute(eq(5L), eq(42L),
-                eq(List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON"))), eq(CallerService.AI_SYSTEM));
+        verify(actuatorCommandExecutor).execute(5L, 42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "ON")), CallerService.AI_SYSTEM);
     }
 
     @Test
