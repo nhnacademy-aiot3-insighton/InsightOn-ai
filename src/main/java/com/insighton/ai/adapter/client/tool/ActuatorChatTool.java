@@ -23,11 +23,12 @@ public class ActuatorChatTool {
     private final CoreClient coreClient;
     private final LocationResolver locationResolver;
 
-    @Tool(description = "지정된 위치의 액추에이터를 조작한다. locationName으로 위치를 이름으로 지정할 수 있고,"
-            + "안 주면 대화에 지정된 현재 위치를 쓴다. actuatorType/command/ commandValue는 반드시 아래 조합만 쓴다 \n"
-            + "AIRCON: POWER_STATUS(ON/OFF), OPERATION_MODE(COOL/DRY/FAN/AUTO), SET_TEMPERATURE(18~30)\n"
-            + "AIR_PURIFIER: POWER_STATUS(ON/OFF), OPERATION_MODE(AUTO/SLEEP/TURBO)\n"
-            + "VENTILATION_FAN: POWER_STATUS(ON/OFF), OPERATION_MODE(LOW/MID/HIGH)")
+    @Tool(description = """
+            지정된 위치의 액추에이터를 조작한다. locationName으로 위치를 이름으로 지정할 수 있고,\
+            안 주면 대화에 지정된 현재 위치를 쓴다. actuatorType/command/ commandValue는 반드시 아래 조합만 쓴다\s
+            AIRCON: POWER_STATUS(ON/OFF), OPERATION_MODE(COOL/DRY/FAN/AUTO), SET_TEMPERATURE(18~30)
+            AIR_PURIFIER: POWER_STATUS(ON/OFF), OPERATION_MODE(AUTO/SLEEP/TURBO)
+            VENTILATION_FAN: POWER_STATUS(ON/OFF), OPERATION_MODE(LOW/MID/HIGH)""")
     public String controlActuator(
             @ToolParam(description = "조작할 위치 이름. 지정 안 하면 대화의 현재 위치를 사용", required = false) String locationName,
             @ToolParam(description = "액추에이터 종류: AIRCON, AIR_PURIFIER, VENTILATION_FAN") ActuatorType actuatorType,

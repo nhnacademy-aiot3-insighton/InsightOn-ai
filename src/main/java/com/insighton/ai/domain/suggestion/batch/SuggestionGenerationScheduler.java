@@ -154,6 +154,10 @@ public class SuggestionGenerationScheduler {
      * @param sourceLabel 로그 구분용 라벨(정기/이벤트 기반)
      */
     private void applyDraft(Long locationId, LocationResponse location, SuggestionDraft draft, String sourceLabel) {
+        if (draft == null) {
+            log.warn("{} 제안 판단 실패(빈 응답) - locationId:{}", sourceLabel, locationId);
+            return;
+        }
         if (!draft.actionNeeded()) {
             log.info("{} 제안 불필요 - locationId:{}", sourceLabel, locationId);
             return;

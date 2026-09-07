@@ -85,8 +85,10 @@ class HourlyTelemetryStatServiceImplTest {
 
     @Test
     void findHourlyTelemetryStats_groupId가_null이면_예외() {
+        Pageable pageable = Pageable.unpaged();
+
         assertThatThrownBy(() ->
-                hourlyTelemetryStatService.findHourlyTelemetryStats(null, 42L, null, null, Pageable.unpaged()))
+                hourlyTelemetryStatService.findHourlyTelemetryStats(null, 42L, null, null, pageable))
                 .isInstanceOf(InvalidRequestException.class);
 
         verify(coreClient, never()).getLocation(any());
@@ -94,8 +96,10 @@ class HourlyTelemetryStatServiceImplTest {
 
     @Test
     void findHourlyTelemetryStats_locationId가_null이면_예외() {
+        Pageable pageable = Pageable.unpaged();
+
         assertThatThrownBy(() ->
-                hourlyTelemetryStatService.findHourlyTelemetryStats(5L, null, null, null, Pageable.unpaged()))
+                hourlyTelemetryStatService.findHourlyTelemetryStats(5L, null, null, null, pageable))
                 .isInstanceOf(InvalidRequestException.class);
 
         verify(coreClient, never()).getLocation(any());
@@ -105,9 +109,10 @@ class HourlyTelemetryStatServiceImplTest {
     void findHourlyTelemetryStats_다른_그룹_소속_위치면_예외() {
         given(coreClient.getLocation(42L)).willReturn(
                 new LocationResponse(42L, "2층 사무실", 999L, AutoControlMode.SUGGESTION));
+        Pageable pageable = Pageable.unpaged();
 
         assertThatThrownBy(() ->
-                hourlyTelemetryStatService.findHourlyTelemetryStats(5L, 42L, null, null, Pageable.unpaged()))
+                hourlyTelemetryStatService.findHourlyTelemetryStats(5L, 42L, null, null, pageable))
                 .isInstanceOf(ForbiddenException.class);
 
         verify(hourlyTelemetryStatRepository, never()).search(any(), any(), any(), any());
@@ -178,7 +183,9 @@ class HourlyTelemetryStatServiceImplTest {
 
     @Test
     void findByLocationAndLogHour_locationId가_null이면_예외() {
-        assertThatThrownBy(() -> hourlyTelemetryStatService.findByLocationAndLogHour(null, OffsetDateTime.now()))
+        OffsetDateTime logHour = OffsetDateTime.now();
+
+        assertThatThrownBy(() -> hourlyTelemetryStatService.findByLocationAndLogHour(null, logHour))
                 .isInstanceOf(InvalidRequestException.class);
     }
 
@@ -212,7 +219,9 @@ class HourlyTelemetryStatServiceImplTest {
 
     @Test
     void deleteByLocations_비어있으면_예외() {
-        assertThatThrownBy(() -> hourlyTelemetryStatService.deleteByLocations(List.of()))
+        List<Long> emptyLocationIds = List.of();
+
+        assertThatThrownBy(() -> hourlyTelemetryStatService.deleteByLocations(emptyLocationIds))
                 .isInstanceOf(InvalidRequestException.class);
 
         verify(hourlyTelemetryStatRepository, never()).deleteByLocationIdIn(any());
@@ -263,10 +272,10 @@ class HourlyTelemetryStatServiceImplTest {
         PeriodTelemetrySummary summary =
                 hourlyTelemetryStatService.summarizePeriod(42L, hour14, hour15);
 
-        assertThat(summary.metricsAvg().get("temperature")).isEqualTo(26.0);
-        assertThat(summary.metricsMax().get("temperature")).isEqualTo(30.0);
-        assertThat(summary.metricsMin().get("temperature")).isEqualTo(22.0);
-        assertThat(summary.actuatorOnMinutes().get("AIRCON")).isEqualTo(75.0);
+        assertThat(summary.metricsAvg()).containsEntry("temperature", 26.0);
+        assertThat(summary.metricsMax()).containsEntry("temperature", 30.0);
+        assertThat(summary.metricsMin()).containsEntry("temperature", 22.0);
+        assertThat(summary.actuatorOnMinutes()).containsEntry("AIRCON", 75.0);
         assertThat(summary.hourlyAvgByMetric().get("temperature")).containsEntry(14, 24.0).containsEntry(15, 28.0);
     }
 

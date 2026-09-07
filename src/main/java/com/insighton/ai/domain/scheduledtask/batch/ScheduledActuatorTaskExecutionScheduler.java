@@ -159,6 +159,11 @@ public class ScheduledActuatorTaskExecutionScheduler {
 
         SuggestionDraft draft = chatClient.prompt().user(buildPrompt(task, hourly, live))
                 .call().entity(SuggestionDraft.class);
+        if (draft == null) {
+            // 여기서 조용히 넘어가면 사용자가 요청한 1회성 예약이 이유 없이 그냥 사라진다 -
+            // 예외를 던져 processClaimed()의 기존 재시도 경로(retryOrGiveUp)를 타게 한다.
+            throw new IllegalStateException("쾌적 준비 판단 실패(빈 응답) - taskId:" + task.taskId());
+        }
 
         if (!draft.actionNeeded() || draft.actions().isEmpty()) {
             log.info("예약 준비 - 조치 불필요, taskId:{}", task.taskId());
