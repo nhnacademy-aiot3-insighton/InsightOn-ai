@@ -23,6 +23,7 @@ import com.insighton.ai.common.exception.InvalidRequestException;
 import com.insighton.ai.domain.notification.dto.DashboardNotificationCreateRequest;
 import com.insighton.ai.domain.notification.entity.NotificationType;
 import com.insighton.ai.domain.notification.service.DashboardNotificationService;
+import com.insighton.ai.domain.suggestion.dto.RejectionPattern;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogCreateRequest;
 import com.insighton.ai.domain.suggestion.dto.SuggestionLogResponse;
 import com.insighton.ai.domain.suggestion.dto.SuggestionSummary;
@@ -333,5 +334,80 @@ class SuggestionLogServiceImplTest {
         assertThat(summary.acceptedCount()).isEqualTo(2);
         assertThat(summary.rejectedCount()).isEqualTo(1);
         assertThat(summary.pendingCount()).isEqualTo(1);
+    }
+
+    private static final String AIRCON_OFF_PAYLOAD_JSON =
+            "{\"locationId\":42,\"actions\":[{\"actuatorType\":\"AIRCON\",\"command\":\"POWER_STATUS\",\"commandValue\":\"OFF\"}]}";
+
+    private List<SuggestionLog> suggestionsWithSameCommand(int rejectedCount, int acceptedCount,
+                                                           String actionPayloadJson) {
+        List<SuggestionLog> suggestions = new java.util.ArrayList<>();
+        long id = 1L;
+        for (int i = 0; i < rejectedCount; i++) {
+            suggestions.add(newSuggestion(id++, 5L, 42L, actionPayloadJson, false));
+        }
+        for (int i = 0; i < acceptedCount; i++) {
+            suggestions.add(newSuggestion(id++, 5L, 42L, actionPayloadJson, true));
+        }
+        return suggestions;
+    }
+
+    @Test
+    void findRejectionPatterns_거절_비율이_70퍼센트_이상이고_샘플이_8건_이상이면_패턴으로_반환한다() {
+        ActionPayload payload = new ActionPayload(42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "OFF")));
+        given(jsonMapper.readValue(AIRCON_OFF_PAYLOAD_JSON, ActionPayload.class)).willReturn(payload);
+        given(suggestionLogRepository.findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(eq(42L), any()))
+                .willReturn(suggestionsWithSameCommand(6, 2, AIRCON_OFF_PAYLOAD_JSON));
+
+        List<RejectionPattern> patterns = suggestionLogService.findRejectionPatterns(42L);
+
+        assertThat(patterns).hasSize(1);
+        RejectionPattern pattern = patterns.get(0);
+        assertThat(pattern.actuatorType()).isEqualTo("AIRCON");
+        assertThat(pattern.command()).isEqualTo("POWER_STATUS");
+        assertThat(pattern.commandValue()).isEqualTo("OFF");
+        assertThat(pattern.rejectedCount()).isEqualTo(6L);
+        assertThat(pattern.totalCount()).isEqualTo(8L);
+    }
+
+    @Test
+    void findRejectionPatterns_샘플이_8건_미만이면_거절률이_100퍼센트여도_제외한다() {
+        ActionPayload payload = new ActionPayload(42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "OFF")));
+        given(jsonMapper.readValue(AIRCON_OFF_PAYLOAD_JSON, ActionPayload.class)).willReturn(payload);
+        given(suggestionLogRepository.findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(eq(42L), any()))
+                .willReturn(suggestionsWithSameCommand(7, 0, AIRCON_OFF_PAYLOAD_JSON));
+
+        List<RejectionPattern> patterns = suggestionLogService.findRejectionPatterns(42L);
+
+        assertThat(patterns).isEmpty();
+    }
+
+    @Test
+    void findRejectionPatterns_거절_비율이_70퍼센트_미만이면_제외한다() {
+        ActionPayload payload = new ActionPayload(42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "POWER_STATUS", "OFF")));
+        given(jsonMapper.readValue(AIRCON_OFF_PAYLOAD_JSON, ActionPayload.class)).willReturn(payload);
+        given(suggestionLogRepository.findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(eq(42L), any()))
+                .willReturn(suggestionsWithSameCommand(5, 3, AIRCON_OFF_PAYLOAD_JSON));
+
+        List<RejectionPattern> patterns = suggestionLogService.findRejectionPatterns(42L);
+
+        assertThat(patterns).isEmpty();
+    }
+
+    @Test
+    void findRejectionPatterns_SET_TEMPERATURE_명령은_그룹핑_의미가_없어_집계에서_제외한다() {
+        String json = "{\"locationId\":42,\"actions\":[{\"actuatorType\":\"AIRCON\",\"command\":\"SET_TEMPERATURE\",\"commandValue\":\"24\"}]}";
+        ActionPayload payload = new ActionPayload(42L,
+                List.of(new ActuatorAction(ActuatorType.AIRCON, "SET_TEMPERATURE", "24")));
+        given(jsonMapper.readValue(json, ActionPayload.class)).willReturn(payload);
+        given(suggestionLogRepository.findByLocationIdAndIsAcceptedNotNullOrderByCreatedAtDesc(eq(42L), any()))
+                .willReturn(suggestionsWithSameCommand(8, 0, json));
+
+        List<RejectionPattern> patterns = suggestionLogService.findRejectionPatterns(42L);
+
+        assertThat(patterns).isEmpty();
     }
 }
