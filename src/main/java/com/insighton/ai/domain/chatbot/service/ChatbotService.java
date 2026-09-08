@@ -1,0 +1,165 @@
+package com.insighton.ai.domain.chatbot.service;
+
+import com.insighton.ai.adapter.client.CoreClient;
+import com.insighton.ai.adapter.client.dto.LocationResponse;
+import com.insighton.ai.adapter.client.exception.ForbiddenException;
+import com.insighton.ai.common.config.RedisStringChatMemoryRepository;
+import com.insighton.ai.domain.chatbot.dto.ChatHistoryMessage;
+import com.insighton.ai.domain.chatbot.exception.ConversationBusyException;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.MessageType;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Service;
+import reactor.core.Disposable;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
+
+@Service
+@RequiredArgsConstructor
+public class ChatbotService {
+
+    private static final String LOCK_KEY_PREFIX = "chat-lock:";
+    private static final Duration LOCK_TTL = Duration.ofSeconds(60);
+    private static final Duration LOCK_RETRY_DELAY = Duration.ofMillis(200);
+    private static final long LOCK_MAX_RETRIES = 50;
+    // createRecommendedFlow처럼 도구 안에서 LLM을 한 번 더 부르고 Rule Engine을 지표마다 순차 호출하는
+    // 경로는 지표 수에 따라 LOCK_TTL(60s)보다 오래 걸릴 수 있다 - 갱신 없이 고정 TTL만 믿으면 처리 중에
+    // 락이 만료돼 다른 요청이 같은 conversationId에 동시에 끼어들 수 있다(ChatMemory read-modify-write
+    // 경합, 이 락을 만든 원래 목적 자체가 깨짐). TTL의 1/3 주기로 갱신해 "아직 살아서 처리 중"인 동안은
+    // 만료 걱정 없이, 인스턴스가 죽어서 갱신이 끊기면 최대 TTL만큼 뒤에 자연 해제되게 한다.
+    private static final Duration LOCK_RENEWAL_INTERVAL = LOCK_TTL.dividedBy(3);
+
+    private static final String SYSTEM_PROMPT_TEMPLATE = """
+            당신은 InsightOn IoT 관제 플랫폼의 챗봇입니다. 오늘은 %s입니다.
+            사용자의 그룹 데이터(리포트, 알람, AI 제안, 알림, 센서 통계, 위치 정보, 실외 날씨)를
+            도구를 호출해서 조회하고 친절하게 설명해주세요.
+
+            기간 표현("한달 전", "1월부터 6월까지", "저번주" 등)이 나오면 오늘 날짜를 기준으로
+            구체적인 시작/종료 시각을 계산해서 도구 호출에 사용하세요.
+            리포트/알람/제안을 ID로 조회하려면 먼저 목록 조회 도구로 제목/생성일을 확인한 뒤,
+            일치하는 항목의 ID로 상세 조회 도구를 호출하세요.
+            도구 결과의 id=N은 다음 도구 호출을 위한 내부 참조값입니다. 사용자에게 답변할 땐
+            이 값을 그대로 언급하지 말고 제목/날짜 등으로 자연스럽게 설명하세요.
+
+            도메인 지식:
+            - 위치의 자동제어 모드는 SUGGESTION(AI가 제안만 하고 사용자가 수락해야 실행)과 AI_DIRECT(AI가 즉시 실행) 두 가지입니다.
+            - 답변은 한국어로, 간결하게 합니다.
+
+            출력 형식:
+            - 여러 항목이나 수치를 나열할 때는 한 문장에 몰아쓰지 말고 항목마다 줄바꿈하세요.
+            - 목록은 "- "로 시작하는 줄로 구분하고, 강조할 값은 앞뒤에 문장부호 대신 줄바꿈으로 구분하세요.
+            - 굵게(**) 등 마크다운 기호는 쓰지 말고 줄바꿈과 "- " 목록만으로 구조를 표현하세요.
+            """;
+
+
+    private final ChatClient chatbotClient;
+    private final CoreClient coreClient;
+    private final StringRedisTemplate redisTemplate;
+    private final RedisStringChatMemoryRepository chatMemoryRepository;
+
+    public Flux<String> streamChat(Long groupId, Long userId, Long locationId, String message) {
+
+        if (locationId != null) {
+            LocationResponse location = coreClient.getLocation(locationId);
+
+            if (!groupId.equals(location.groupId())) {
+                throw new ForbiddenException("해당 그룹 소속의 위치가 아닙니다. locationId:" + locationId);
+            }
+        }
+
+        Map<String, Object> context = new HashMap<>();
+        context.put("groupId", groupId);
+        context.put("userId", userId);
+        if (locationId != null) {
+            context.put("locationId", locationId);
+        }
+
+        String conversationId = conversationId(groupId, userId);
+        String systemPrompt = SYSTEM_PROMPT_TEMPLATE.formatted(OffsetDateTime.now());
+
+        Flux<String> chatFlux = chatbotClient.prompt()
+                .system(systemPrompt)
+                .user(message)
+                .toolContext(context)
+                .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversationId))
+                .stream()
+                .content();
+
+        // 동일 conversationId에 대한 ChatMemory read-modify-write(조회 후 전체 교체)가
+        // 병렬 요청 간에 겹치면 한쪽 turn이 유실될 수 있어, 대화 단위로 직렬화.
+        String lockKey = LOCK_KEY_PREFIX + conversationId;
+        String lockValue = UUID.randomUUID().toString();
+
+        // 처리가 LOCK_TTL보다 길어져도 락이 먼저 만료돼버리지 않도록 주기적으로 갱신한다 - 아직 이
+        // 요청이 쥔 락일 때만 연장하도록(lockValue 일치 확인) renewLock() 안에서 가드한다.
+        Disposable renewal = Flux.interval(LOCK_RENEWAL_INTERVAL)
+                .subscribe(tick -> renewLock(lockKey, lockValue));
+
+        return acquireLock(lockKey, lockValue)
+                .thenMany(chatFlux)
+                .doFinally(signalType -> {
+                    renewal.dispose();
+                    releaseLock(lockKey, lockValue);
+                });
+    }
+
+    /**
+     * userId 기준으로 통합된 대화 이력을 조회한다(위치별로 나뉘지 않음 - conversationId도 동일 기준).
+     * 도구 호출/응답(TOOL)과 시스템 프롬프트(SYSTEM)는 화면에 보여줄 대상이 아니라 제외한다.
+     */
+    public List<ChatHistoryMessage> getHistory(Long groupId, Long userId) {
+        String conversationId = conversationId(groupId, userId);
+
+        return chatMemoryRepository.findRawByConversationId(conversationId).stream()
+                .filter(stored -> stored.type() == MessageType.USER || stored.type() == MessageType.ASSISTANT)
+                .map(stored -> new ChatHistoryMessage(stored.type().name(), stored.text()))
+                .toList();
+    }
+
+    private String conversationId(Long groupId, Long userId) {
+        return "chat:" + groupId + ":" + userId;
+    }
+
+    /**
+     * 최대 {@link #LOCK_MAX_RETRIES}회({@value #LOCK_RETRY_DELAY} 간격)까지 재시도해도 락을 못 잡으면
+     * (예: 같은 대화에 자동화 추천처럼 오래 걸리는 요청이 아직 락을 쥐고 있는 경우), 내부 재시도 신호용
+     * {@link ConversationLockedException}을 밖으로 새 나가게 두지 않고 공개 예외로 바꿔 던진다 -
+     * GlobalExceptionHandler가 이 타입을 인식해 사용자에게 친절한 메시지로 응답한다.
+     */
+    private Mono<Void> acquireLock(String lockKey, String lockValue) {
+        return Mono.fromCallable(() -> Boolean.TRUE.equals(
+                        redisTemplate.opsForValue().setIfAbsent(lockKey, lockValue, LOCK_TTL)))
+                .flatMap(acquired -> acquired ? Mono.<Void>empty() : Mono.error(new ConversationLockedException()))
+                .retryWhen(Retry.fixedDelay(LOCK_MAX_RETRIES, LOCK_RETRY_DELAY)
+                        .filter(ConversationLockedException.class::isInstance)
+                        .onRetryExhaustedThrow((spec, signal) -> new ConversationBusyException()));
+    }
+
+    private void releaseLock(String lockKey, String lockValue) {
+        if (lockValue.equals(redisTemplate.opsForValue().get(lockKey))) {
+            redisTemplate.delete(lockKey);
+        }
+    }
+
+    /**
+     * 이 요청이 지금도 락을 쥐고 있을 때만(lockValue 일치) TTL을 연장한다 - 이미 만료돼 다른 요청이
+     * 새로 잡은 락을 실수로 연장하면 그 요청의 처리 시간과 무관하게 락이 계속 살아남는 문제가 생긴다.
+     */
+    private void renewLock(String lockKey, String lockValue) {
+        if (lockValue.equals(redisTemplate.opsForValue().get(lockKey))) {
+            redisTemplate.expire(lockKey, LOCK_TTL);
+        }
+    }
+
+    private static final class ConversationLockedException extends RuntimeException {
+    }
+}
